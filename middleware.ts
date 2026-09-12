@@ -11,6 +11,12 @@ export const config = {
    * Todo pasa por el middleware salvo /api, los assets de Next y los archivos
    * estáticos. Las rutas de /api que se agreguen mas adelante deben validar la
    * sesión con `auth()` dentro del route handler.
+   *
+   * Los formatos de imagen se excluyen por extensión: sin esto el favicon
+   * (`app/icon.svg`) cae en el redirect a /login y no se muestra en la propia
+   * pantalla de login, que es justo donde se ve sin sesión.
    */
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\.png$).*)"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon\\.ico|.*\\.(?:png|svg|jpg|jpeg|webp|ico)$).*)",
+  ],
 };

@@ -1,5 +1,7 @@
 import type { Rol } from "@prisma/client";
 
+import type { NombreIcono } from "@/components/ui/icono";
+
 /**
  * Fuente única de verdad de los permisos por ruta.
  *
@@ -14,22 +16,45 @@ export type Modulo = {
   href: string;
   label: string;
   roles: readonly Rol[];
+  /** Agrupación en la navegación lateral. */
+  grupo: GrupoModulo;
+  /**
+   * Icono del módulo. Es solo un `import type`, así que no arrastra React ni
+   * nada del bundle de componentes al Edge Runtime del middleware.
+   */
+  icono: NombreIcono;
 };
+
+/** Orden en que se muestran los grupos en la navegación. */
+export const GRUPOS = ["Operación", "Gestión", "Administración"] as const;
+export type GrupoModulo = (typeof GRUPOS)[number];
 
 const TODOS = ["ADMINISTRADOR", "EMPLEADO_CAJA"] as const satisfies readonly Rol[];
 const SOLO_ADMIN = ["ADMINISTRADOR"] as const satisfies readonly Rol[];
 
 export const MODULOS: readonly Modulo[] = [
-  { href: "/caja", label: "Caja / Ventas", roles: TODOS },
-  { href: "/cierres", label: "Cierres de caja", roles: TODOS },
-  { href: "/productos", label: "Productos", roles: SOLO_ADMIN },
-  { href: "/clientes", label: "Clientes", roles: SOLO_ADMIN },
-  { href: "/proveedores", label: "Proveedores", roles: SOLO_ADMIN },
-  { href: "/compras", label: "Compras", roles: SOLO_ADMIN },
-  { href: "/gastos", label: "Gastos", roles: SOLO_ADMIN },
-  { href: "/reportes", label: "Reportes", roles: SOLO_ADMIN },
-  { href: "/usuarios", label: "Usuarios", roles: SOLO_ADMIN },
+  { href: "/caja", label: "Caja / Ventas", roles: TODOS, grupo: "Operación", icono: "caja" },
+  { href: "/cierres", label: "Cierres de caja", roles: TODOS, grupo: "Operación", icono: "cierres" },
+  { href: "/productos", label: "Productos", roles: SOLO_ADMIN, grupo: "Gestión", icono: "productos" },
+  { href: "/clientes", label: "Clientes", roles: SOLO_ADMIN, grupo: "Gestión", icono: "clientes" },
+  { href: "/proveedores", label: "Proveedores", roles: SOLO_ADMIN, grupo: "Gestión", icono: "proveedores" },
+  { href: "/compras", label: "Compras", roles: SOLO_ADMIN, grupo: "Gestión", icono: "compras" },
+  { href: "/gastos", label: "Gastos", roles: SOLO_ADMIN, grupo: "Gestión", icono: "gastos" },
+  { href: "/reportes", label: "Reportes", roles: SOLO_ADMIN, grupo: "Administración", icono: "reportes" },
+  { href: "/usuarios", label: "Usuarios", roles: SOLO_ADMIN, grupo: "Administración", icono: "usuarios" },
 ];
+
+/** Módulos visibles para un rol, ya agrupados y en el orden de `GRUPOS`. */
+export function navegacionPorGrupo(
+  rol: Rol,
+): readonly { grupo: GrupoModulo; modulos: readonly Modulo[] }[] {
+  const visibles = modulosVisibles(rol);
+
+  return GRUPOS.map((grupo) => ({
+    grupo,
+    modulos: visibles.filter((modulo) => modulo.grupo === grupo),
+  })).filter((seccion) => seccion.modulos.length > 0);
+}
 
 /** Rutas accesibles sin sesión iniciada. */
 export const RUTAS_PUBLICAS = ["/login"] as const;

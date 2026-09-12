@@ -2,6 +2,10 @@
 
 import { useActionState } from "react";
 
+import { Boton } from "@/components/ui/boton";
+import { Campo } from "@/components/ui/campo";
+import { Icono } from "@/components/ui/icono";
+
 import { autenticar, type EstadoLogin } from "./actions";
 
 const ESTADO_INICIAL: EstadoLogin = { error: null };
@@ -14,54 +18,47 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <div className="space-y-1">
-        <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          autoFocus
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100"
-        />
-      </div>
+      <Campo
+        id="email"
+        name="email"
+        type="email"
+        etiqueta="Email"
+        placeholder="nombre@ferrera.com"
+        required
+        autoComplete="email"
+        autoFocus
+      />
 
-      <div className="space-y-1">
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-slate-700"
-        >
-          Contraseña
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-marca-500 focus:ring-2 focus:ring-marca-100"
-        />
-      </div>
+      <Campo
+        id="password"
+        name="password"
+        type="password"
+        etiqueta="Contraseña"
+        required
+        autoComplete="current-password"
+      />
 
       {estado.error ? (
         <p
           role="alert"
-          className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700"
+          className="flex items-start gap-2 rounded-md bg-peligro-fondo px-3 py-2.5 text-[13px] leading-snug text-peligro-tinta"
         >
+          <span className="mt-px shrink-0">
+            <Icono nombre="alerta" tamano={15} />
+          </span>
           {estado.error}
         </p>
       ) : null}
 
-      <button
+      <Boton
         type="submit"
+        variante="primario"
+        tamano="lg"
         disabled={pendiente}
-        className="w-full rounded-md bg-marca-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-marca-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full"
       >
-        {pendiente ? "Ingresando..." : "Ingresar"}
-      </button>
+        {pendiente ? "Ingresando…" : "Ingresar"}
+      </Boton>
     </form>
   );
 }

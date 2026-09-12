@@ -1,9 +1,18 @@
 import { redirect } from "next/navigation";
 
+import { Icono } from "@/components/ui/icono";
+import { Marca } from "@/components/ui/marca";
 import { auth, signOut } from "@/lib/auth";
-import { modulosVisibles } from "@/lib/permissions";
+import { modulosVisibles, navegacionPorGrupo } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 
 import { NavLateral } from "./_components/nav-lateral";
+import { NavMovil } from "./_components/nav-movil";
+
+const NOMBRE_ROL = {
+  ADMINISTRADOR: "Administrador",
+  EMPLEADO_CAJA: "Empleado de caja",
+} as const;
 
 export default async function DashboardLayout({
   children,
@@ -15,6 +24,20 @@ export default async function DashboardLayout({
 
   const { user } = sesion;
 
+  const sucursal = user.sucursalId
+    ? await prisma.sucursal.findUnique({
+        where: { id: user.sucursalId },
+        select: { nombre: true },
+      })
+    : null;
+
+  const iniciales = (user.name ?? "")
+    .split(" ")
+    .slice(0, 2)
+    .map((parte) => parte[0] ?? "")
+    .join("")
+    .toUpperCase();
+
   async function cerrarSesion() {
     "use server";
     await signOut({ redirectTo: "/login" });
@@ -22,36 +45,54 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-        <span className="text-sm font-semibold text-slate-900">
-          Inversiones Ferrera
-        </span>
-
+      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-borde bg-superficie px-4">
         <div className="flex items-center gap-4">
-          <div className="text-right leading-tight">
-            <p className="text-sm font-medium text-slate-800">{user.name}</p>
-            <p className="text-xs text-slate-500">
-              {user.rol === "ADMINISTRADOR" ? "Administrador" : "Empleado de caja"}
-            </p>
+          <Marca />
+
+          {sucursal ? (
+            <>
+              <span aria-hidden className="h-5 w-px bg-borde" />
+              <span className="flex items-center gap-1.5 text-[13px] text-tinta-media">
+                <span className="text-tinta-suave">
+                  <Icono nombre="tienda" tamano={15} />
+                </span>
+                {sucursal.nombre}
+              </span>
+            </>
+          ) : null}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden text-right leading-tight sm:block">
+            <p className="text-[13px] font-medium text-tinta">{user.name}</p>
+            <p className="text-[11px] text-tinta-suave">{NOMBRE_ROL[user.rol]}</p>
           </div>
+
+          <span className="flex h-8 w-8 items-center justify-center rounded-md border border-borde bg-superficie-suave font-mono text-[11px] font-medium text-tinta-media">
+            {iniciales || "—"}
+          </span>
 
           <form action={cerrarSesion}>
             <button
               type="submit"
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100"
+              title="Cerrar sesión"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-tinta-suave transition-colors duration-150 hover:bg-superficie-suave hover:text-tinta"
             >
-              Salir
+              <Icono nombre="salir" />
+              <span className="sr-only">Cerrar sesión</span>
             </button>
           </form>
         </div>
       </header>
 
+      <NavMovil modulos={modulosVisibles(user.rol)} />
+
       <div className="flex flex-1">
-        <aside className="w-56 shrink-0 border-r border-slate-200 bg-white p-3">
-          <NavLateral modulos={modulosVisibles(user.rol)} />
+        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-[248px] shrink-0 overflow-y-auto border-r border-borde px-3 py-5 md:block">
+          <NavLateral secciones={navegacionPorGrupo(user.rol)} />
         </aside>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
       </div>
     </div>
   );

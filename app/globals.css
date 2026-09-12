@@ -1,15 +1,111 @@
 @import "tailwindcss";
 
+/*
+ * Sistema de diseño — Inversiones Ferrera
+ *
+ * Herramienta operativa, no sitio de marketing: densidad alta, contraste
+ * cuidado y cero adorno. La paleta es monocroma cálida (hueso / carbón) y el
+ * color se reserva para significado: verde de marca solo en la acción primaria
+ * y el estado activo, pasteles apagados solo para estados semánticos.
+ */
 @theme {
-  --color-marca-50: #f0fdf4;
-  --color-marca-100: #dcfce7;
-  --color-marca-500: #22c55e;
-  --color-marca-600: #16a34a;
-  --color-marca-700: #15803d;
-  --color-marca-900: #14532d;
+  /* --- Verde de marca ------------------------------------------------- */
+  --color-marca-50: #eff6f0;
+  --color-marca-100: #d9eadd;
+  --color-marca-200: #b5d6bc;
+  --color-marca-300: #86bc93;
+  --color-marca-400: #55a068;
+  --color-marca-500: #2e8447;
+  --color-marca-600: #216b38;
+  --color-marca-700: #19532b;
+  --color-marca-800: #133f21;
+  --color-marca-900: #0e2d18;
+
+  /* --- Monocromo cálido ------------------------------------------------ */
+  /* Lienzo de la app. Hueso, no blanco: menos fatiga en jornadas largas. */
+  --color-lienzo: #f7f6f3;
+  --color-superficie: #ffffff;
+  --color-superficie-suave: #fbfbfa;
+  /* Carbón cálido para paneles oscuros. Nunca negro puro. */
+  --color-carbon: #1f1e1c;
+  --color-carbon-suave: #33312d;
+
+  --color-borde: #e6e4df;
+  --color-borde-fuerte: #d4d1c9;
+
+  --color-tinta: #1f1e1c;
+  --color-tinta-media: #6f6c66;
+  --color-tinta-suave: #9a968e;
+
+  /* --- Pasteles semánticos (fondo / texto) ----------------------------- */
+  --color-exito-fondo: #edf3ec;
+  --color-exito-tinta: #346538;
+  --color-alerta-fondo: #fbf3db;
+  --color-alerta-tinta: #956400;
+  --color-peligro-fondo: #fdebec;
+  --color-peligro-tinta: #9f2f2d;
+  --color-info-fondo: #e1f3fe;
+  --color-info-tinta: #1f6c9f;
+
+  /* --- Tipografía ------------------------------------------------------ */
+  --font-sans: var(--fuente-sans), "SF Pro Display", "Helvetica Neue", sans-serif;
+  --font-mono: var(--fuente-mono), "SF Mono", "Cascadia Code", monospace;
+
+  /* --- Radios: nítidos, nunca pastilla en contenedores ------------------ */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* --- Sombras: prácticamente inexistentes ----------------------------- */
+  --shadow-sutil: 0 1px 2px rgba(31, 30, 28, 0.04);
+  --shadow-elevado: 0 2px 8px rgba(31, 30, 28, 0.05);
 }
 
 html,
 body {
   height: 100%;
+}
+
+body {
+  /* El texto de interfaz nunca es negro puro. */
+  color: var(--color-tinta);
+  background-color: var(--color-lienzo);
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Cifras alineadas en columna. Obligatorio en precios, cantidades y totales:
+ * sin esto los montos "bailan" al actualizarse y se vuelven difíciles de leer
+ * de un vistazo, que es exactamente lo que hace un cajero todo el día.
+ */
+.cifras {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Foco visible y consistente: se opera con teclado. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-marca-500);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Textura muy tenue para que los paneles oscuros no se lean planos. */
+.trama-lineas {
+  background-image: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.04) 1px,
+    transparent 1px
+  );
+  background-size: 32px 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
