@@ -60,10 +60,16 @@ async function main() {
     update: {},
     create: {
       nombre: "Distribuidora del Valle",
-      telefono: "+56 9 1234 5678",
+      telefono: "+504 2222-3344",
     },
   });
 
+  /*
+   * Un producto por cada forma de venta, para probar todos los caminos de la
+   * caja: por peso (se tipea la cantidad), por unidad y por paquete con
+   * código de barras (se escanean). El aguacate arranca con poco stock para
+   * probar la venta con stock negativo, y el yogur ya está vencido.
+   */
   const productos = [
     {
       idInterno: 1001,
@@ -72,8 +78,9 @@ async function main() {
       categoriaId: categoriaPorNombre.get("Verduras")!,
       proveedorId: proveedor.id,
       unidadVenta: UnidadVenta.PESO,
-      precioMinorista: "1890.00",
-      precioMayorista: "1490.00",
+      precioMinorista: "18.00",
+      precioMayorista: "15.00",
+      fechaVencimiento: null,
       cantidadStock: "45.500",
     },
     {
@@ -83,20 +90,46 @@ async function main() {
       categoriaId: categoriaPorNombre.get("Frutas")!,
       proveedorId: proveedor.id,
       unidadVenta: UnidadVenta.PESO,
-      precioMinorista: "1290.00",
-      precioMayorista: "990.00",
+      precioMinorista: "12.50",
+      precioMayorista: "10.00",
+      fechaVencimiento: null,
       cantidadStock: "30.000",
     },
     {
       idInterno: 1003,
-      codigoBarras: "7801234567890",
-      nombre: "Arroz grado 1 - 1kg",
+      codigoBarras: "7401234567890",
+      nombre: "Arroz grado 1 - 2 lb",
       categoriaId: categoriaPorNombre.get("Granos")!,
       proveedorId: proveedor.id,
       unidadVenta: UnidadVenta.PAQUETE,
-      precioMinorista: "1690.00",
-      precioMayorista: "1390.00",
+      precioMinorista: "32.00",
+      precioMayorista: "28.50",
+      fechaVencimiento: null,
       cantidadStock: "120.000",
+    },
+    {
+      idInterno: 1004,
+      codigoBarras: null,
+      nombre: "Aguacate",
+      categoriaId: categoriaPorNombre.get("Frutas")!,
+      proveedorId: proveedor.id,
+      unidadVenta: UnidadVenta.UNIDAD,
+      precioMinorista: "15.00",
+      precioMayorista: "12.00",
+      fechaVencimiento: null,
+      cantidadStock: "3.000",
+    },
+    {
+      idInterno: 1005,
+      codigoBarras: "7401234500017",
+      nombre: "Yogur natural 1 L",
+      categoriaId: categoriaPorNombre.get("Snacks")!,
+      proveedorId: proveedor.id,
+      unidadVenta: UnidadVenta.UNIDAD,
+      precioMinorista: "45.00",
+      precioMayorista: "40.00",
+      fechaVencimiento: new Date("2026-01-15T00:00:00.000Z"),
+      cantidadStock: "10.000",
     },
   ];
 
@@ -123,17 +156,50 @@ async function main() {
     });
   }
 
-  await prisma.cliente.upsert({
-    where: { id: 1 },
-    update: {},
-    create: {
+  /*
+   * Clientes para probar precios y fiado: mayorista con límite, mayorista sin
+   * tope y minorista sin fiado. `Cliente` no tiene otro campo único que el
+   * id, así que se buscan por nombre para no duplicarlos ni pisar clientes
+   * cargados a mano.
+   */
+  const clientes = [
+    {
       nombre: "María González",
       tipo: TipoCliente.MINORISTA,
       fiadoHabilitado: true,
-      limiteCredito: "50000.00",
-      telefono: "+56 9 8765 4321",
+      limiteCredito: "500.00",
+      telefono: "+504 9876-5432",
     },
-  });
+    {
+      nombre: "Comedor Doña Ana",
+      tipo: TipoCliente.MAYORISTA,
+      fiadoHabilitado: true,
+      limiteCredito: "1000.00",
+      telefono: "+504 9988-1122",
+    },
+    {
+      nombre: "Supermercado El Centro",
+      tipo: TipoCliente.MAYORISTA,
+      fiadoHabilitado: true,
+      limiteCredito: null,
+      telefono: "+504 2233-4455",
+    },
+    {
+      nombre: "Carlos Mejía",
+      tipo: TipoCliente.MINORISTA,
+      fiadoHabilitado: false,
+      limiteCredito: null,
+      telefono: null,
+    },
+  ];
+
+  for (const cliente of clientes) {
+    const existente = await prisma.cliente.findFirst({
+      where: { nombre: cliente.nombre },
+      select: { id: true },
+    });
+    if (!existente) await prisma.cliente.create({ data: cliente });
+  }
 
   console.log("Seed completado.");
   console.log(`Usuarios: admin@ferrera.com / caja@ferrera.com  (password: ${PASSWORD_DEMO})`);

@@ -38,6 +38,8 @@ enum MetodoPago {
 enum TipoMovimientoCuenta {
   CARGO
   ABONO
+  /// Reversa del cargo de una venta a fiado anulada. No es dinero cobrado.
+  ANULACION
 }
 
 enum TipoMovimientoProveedor {
@@ -129,6 +131,7 @@ model Usuario {
   compras     Compra[]
   cierresCaja CierreCaja[]
   gastos      Gasto[]
+  anulaciones AnulacionVenta[]
 }
 
 model Cliente {
@@ -147,21 +150,40 @@ model Cliente {
 }
 
 model Venta {
-  id         Int        @id @default(autoincrement())
-  fecha      DateTime   @default(now())
-  clienteId  Int?
-  cliente    Cliente?   @relation(fields: [clienteId], references: [id])
-  usuarioId  Int
-  usuario    Usuario    @relation(fields: [usuarioId], references: [id])
-  sucursalId Int
-  sucursal   Sucursal   @relation(fields: [sucursalId], references: [id])
-  canal      Canal
-  metodoPago MetodoPago
-  total      Decimal    @db.Decimal(10, 2)
-  anulada    Boolean    @default(false)
+  id                Int        @id @default(autoincrement())
+  fecha             DateTime   @default(now())
+  clienteId         Int?
+  cliente           Cliente?   @relation(fields: [clienteId], references: [id])
+  usuarioId         Int
+  usuario           Usuario    @relation(fields: [usuarioId], references: [id])
+  sucursalId        Int
+  sucursal          Sucursal   @relation(fields: [sucursalId], references: [id])
+  canal             Canal
+  metodoPago        MetodoPago
+  total             Decimal    @db.Decimal(10, 2)
+  /// Bandera para filtrar rápido; el detalle de la anulación vive en `AnulacionVenta`.
+  anulada           Boolean    @default(false)
+  /// Generada en el cliente por cada carrito: un reintento no duplica la venta.
+  claveIdempotencia String     @unique
+  notas             String?
+  creadoEn          DateTime   @default(now())
 
   detalles          DetalleVenta[]
   movimientosCuenta MovimientoCuenta[]
+  anulacion         AnulacionVenta?
+
+  @@index([sucursalId, fecha])
+}
+
+model AnulacionVenta {
+  id             Int      @id @default(autoincrement())
+  ventaId        Int      @unique
+  venta          Venta    @relation(fields: [ventaId], references: [id])
+  usuarioId      Int
+  usuario        Usuario  @relation(fields: [usuarioId], references: [id])
+  motivo         String
+  reingresaStock Boolean
+  fecha          DateTime @default(now())
 }
 
 model DetalleVenta {
@@ -209,6 +231,8 @@ model MovimientoCuenta {
   tipo      TipoMovimientoCuenta
   monto     Decimal              @db.Decimal(10, 2)
   fecha     DateTime             @default(now())
+
+  @@index([clienteId])
 }
 
 model MovimientoProveedor {

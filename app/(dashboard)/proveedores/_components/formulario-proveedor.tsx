@@ -55,7 +55,7 @@ export function FormularioProveedor({
             etiqueta="Teléfono"
             type="tel"
             defaultValue={inicial.telefono}
-            placeholder="+56 9 1234 5678"
+            placeholder="+504 9876-5432"
             maxLength={30}
             error={errores.telefono}
           />

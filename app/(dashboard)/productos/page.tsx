@@ -18,7 +18,7 @@ import {
   cantidad,
   diasHasta,
   fecha,
-  precio,
+  formatoMoneda,
   sufijoUnidad,
 } from "@/lib/formato";
 import {
@@ -180,10 +180,10 @@ export default async function ProductosPage({
                         {producto.categoria.nombre}
                       </Celda>
                       <Celda derecha className="cifras">
-                        {precio(producto.precioMinorista.toString())}
+                        {formatoMoneda(producto.precioMinorista.toString())}
                       </Celda>
                       <Celda derecha className="cifras text-tinta-media">
-                        {precio(producto.precioMayorista.toString())}
+                        {formatoMoneda(producto.precioMayorista.toString())}
                       </Celda>
                       <Celda
                         derecha

@@ -1,46 +1,53 @@
-import type { UnidadVenta } from "@prisma/client";
+import type { Prisma, UnidadVenta } from "@prisma/client";
+
+import { UNIDAD_PESO } from "@/lib/config";
+import { diaDelNegocio } from "@/lib/fecha";
 
 /**
  * Formateo de cifras para la interfaz.
  *
- * El peso chileno no usa decimales, pero el schema guarda `Decimal(10,2)`, así
- * que el redondeo de presentación se resuelve acá y no en cada pantalla.
+ * Los montos son lempiras con dos decimales. El símbolo se arma a mano en vez
+ * de usar `style: "currency"` para que servidor y navegador produzcan
+ * exactamente el mismo texto (el ICU de cada uno puede variar el espacio).
  */
-const PESOS = new Intl.NumberFormat("es-CL", {
-  style: "currency",
-  currency: "CLP",
-  maximumFractionDigits: 0,
+const DOS_DECIMALES = new Intl.NumberFormat("es-HN", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
 });
 
-const ENTERO = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });
+const ENTERO = new Intl.NumberFormat("es-HN", { maximumFractionDigits: 0 });
 
 /** Cantidades por peso: hasta 3 decimales, sin ceros de relleno inútiles. */
-const CANTIDAD_PESO = new Intl.NumberFormat("es-CL", {
+const CANTIDAD_PESO = new Intl.NumberFormat("es-HN", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 3,
 });
 
-/** Acepta el `Decimal` de Prisma, que llega serializado como string. */
-export type Numerico = number | string;
+/** Acepta el `Decimal` de Prisma, o su serialización como string. */
+export type Numerico = number | string | Prisma.Decimal;
 
 export function aNumero(valor: Numerico): number {
-  return typeof valor === "number" ? valor : Number(valor);
+  return typeof valor === "number" ? valor : Number(valor.toString());
 }
 
-export function precio(valor: Numerico): string {
-  return PESOS.format(aNumero(valor));
+/** Único formato de dinero de la app: `L 1,234.50`. */
+export function formatoMoneda(valor: Numerico): string {
+  const numero = aNumero(valor);
+  // `-0` se mostraría como "L -0.00".
+  const signo = numero < 0 && Math.abs(numero) >= 0.005 ? "-" : "";
+  return `${signo}L ${DOS_DECIMALES.format(Math.abs(numero))}`;
 }
 
 /** Monto sin el símbolo, para tablas donde la columna ya dice que es dinero. */
 export function monto(valor: Numerico): string {
-  return ENTERO.format(Math.round(aNumero(valor)));
+  return DOS_DECIMALES.format(aNumero(valor));
 }
 
 /** Sufijo corto de la unidad de venta. */
 export function sufijoUnidad(unidad: UnidadVenta): string {
   switch (unidad) {
     case "PESO":
-      return "kg";
+      return UNIDAD_PESO;
     case "PAQUETE":
       return "paq";
     case "UNIDAD":
@@ -56,17 +63,15 @@ export function pasoUnidad(unidad: UnidadVenta): number {
 
 /*
  * Fechas sin hora (vencimientos): se guardan a medianoche UTC, así que se
- * muestran y comparan en UTC para que no "retrocedan" un día con el huso de
- * Chile. El "hoy" sí se toma en hora local del negocio.
+ * muestran y comparan en UTC para que no "retrocedan" un día con el huso del
+ * negocio. El "hoy" sí se toma en hora local del negocio.
  */
-const FECHA = new Intl.DateTimeFormat("es-CL", {
+const FECHA = new Intl.DateTimeFormat("es-HN", {
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
   timeZone: "UTC",
 });
-
-const HOY_LOCAL = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" });
 
 const MS_DIA = 86_400_000;
 
@@ -79,9 +84,9 @@ export function fechaISO(valor: Date): string {
   return valor.toISOString().slice(0, 10);
 }
 
-/** Días desde hoy (hora de Chile) hasta la fecha. Negativo si ya pasó. */
+/** Días desde hoy (hora del negocio) hasta la fecha. Negativo si ya pasó. */
 export function diasHasta(valor: Date): number {
-  const hoy = new Date(`${HOY_LOCAL.format(new Date())}T00:00:00.000Z`);
+  const hoy = new Date(`${diaDelNegocio()}T00:00:00.000Z`);
   return Math.round((valor.getTime() - hoy.getTime()) / MS_DIA);
 }
 

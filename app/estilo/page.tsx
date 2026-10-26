@@ -8,7 +8,7 @@ import { Etiqueta, Tecla } from "@/components/ui/etiqueta";
 import { Icono, type NombreIcono } from "@/components/ui/icono";
 import { Marca } from "@/components/ui/marca";
 import { EncabezadoPagina, Tarjeta } from "@/components/ui/pagina";
-import { cantidad, precio } from "@/lib/formato";
+import { cantidad, formatoMoneda } from "@/lib/formato";
 
 import { DemoSegmentado } from "./_components/demo-segmentado";
 
@@ -298,9 +298,9 @@ export default function EstiloPage() {
                 Con cifras tabulares
               </p>
               <div className="cifras mt-2 space-y-0.5 text-right font-mono text-[13px] text-tinta">
-                <p>{precio(1890)}</p>
-                <p>{precio(11110)}</p>
-                <p>{precio(3769)}</p>
+                <p>{formatoMoneda(1890)}</p>
+                <p>{formatoMoneda(11110)}</p>
+                <p>{formatoMoneda(3769)}</p>
               </div>
             </Tarjeta>
             <Tarjeta className="p-4">
@@ -308,9 +308,9 @@ export default function EstiloPage() {
                 Sin cifras tabulares
               </p>
               <div className="mt-2 space-y-0.5 text-right font-sans text-[13px] text-tinta">
-                <p>{precio(1890)}</p>
-                <p>{precio(11110)}</p>
-                <p>{precio(3769)}</p>
+                <p>{formatoMoneda(1890)}</p>
+                <p>{formatoMoneda(11110)}</p>
+                <p>{formatoMoneda(3769)}</p>
               </div>
             </Tarjeta>
           </div>
@@ -428,7 +428,7 @@ export default function EstiloPage() {
           titulo="Formato de cifras"
           descripcion="Vive en lib/formato.ts. El peso chileno no lleva decimales aunque el schema guarde Decimal(10,2), y la cantidad cambia de forma según la unidad de venta."
         >
-          <Demo nota="precio() · cantidad() · sufijoUnidad() · pasoUnidad()">
+          <Demo nota="formatoMoneda() · cantidad() · sufijoUnidad() · pasoUnidad()">
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="border-b border-borde text-[10px] font-semibold uppercase tracking-[0.08em] text-tinta-suave">
@@ -438,8 +438,8 @@ export default function EstiloPage() {
               </thead>
               <tbody className="text-tinta">
                 {[
-                  ["precio(1890)", precio(1890)],
-                  ["precio('1690.00')", precio("1690.00")],
+                  ["formatoMoneda(1890)", formatoMoneda(1890)],
+                  ["formatoMoneda('1690.00')", formatoMoneda("1690.00")],
                   ["cantidad(45.5, 'PESO')", cantidad(45.5, "PESO")],
                   ["cantidad(120, 'PAQUETE')", cantidad(120, "PAQUETE")],
                   ["cantidad(3, 'UNIDAD')", cantidad(3, "UNIDAD")],

@@ -63,7 +63,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-borde bg-superficie px-4">
+      <header className="no-imprimir sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-borde bg-superficie px-4">
         <div className="flex items-center gap-4">
           <Marca />
 
@@ -106,11 +106,11 @@ export default async function DashboardLayout({
       <NavMovil modulos={modulosVisibles(user.rol)} />
 
       <div className="flex flex-1">
-        <aside className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-[248px] shrink-0 overflow-y-auto border-r border-borde px-3 py-5 md:block">
+        <aside className="no-imprimir sticky top-14 hidden h-[calc(100vh-3.5rem)] w-[248px] shrink-0 overflow-y-auto border-r border-borde px-3 py-5 md:block">
           <NavLateral secciones={navegacionPorGrupo(user.rol)} />
         </aside>
 
-        <main className="min-w-0 flex-1 px-6 py-6">{children}</main>
+        <main className="min-w-0 flex-1 px-6 py-6 print:p-0">{children}</main>
       </div>
     </div>
   );
