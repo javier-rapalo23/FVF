@@ -11,11 +11,21 @@ import { Segmentado } from "@/components/ui/segmentado";
 import { diaDelNegocio, formatoHora } from "@/lib/fecha";
 import { formatoMoneda } from "@/lib/formato";
 import {
+  aplicarPendientes,
+  aplicarVenta,
+  claveCatalogo,
+  guardarCatalogo,
+  leerCatalogo,
+  type VentaLocal,
+} from "@/lib/offline/catalogo-local";
+import { encolarVenta, listarPendientes } from "@/lib/offline/cola";
+import { emitir, escuchar, esFallaDeRed, reportarRed } from "@/lib/offline/eventos";
+import type { RegistroCatalogo, ResumenVenta, VentaPendiente } from "@/lib/offline/tipos";
+import {
   aDecimal,
   calcularSubtotal,
   calcularTotal,
   calcularVuelto,
-  textoCantidad,
   textoMonto,
   validarCantidad,
 } from "@/lib/ventas/calculos";
@@ -41,6 +51,8 @@ import {
   type Carrito,
   type FilaCarrito,
 } from "./carrito";
+import type { DatosComprobante } from "./comprobante";
+import { comprobanteDePendiente, ImpresionAislada } from "./impresion-aislada";
 import { LineasCarrito } from "./lineas-carrito";
 import { PanelCobro, type ErrorCobro } from "./panel-cobro";
 import { ResultadoVenta, type Resultado } from "./resultado-venta";
@@ -48,16 +60,30 @@ import { SelectorCliente } from "./selector-cliente";
 
 /** El catálogo se refresca solo mientras haya conexión. */
 const REFRESCO_CATALOGO_MS = 60_000;
-/** Pasado este tiempo sin respuesta, el cobro se da por fallido (y se puede reintentar). */
-const ESPERA_COBRO_MS = 15_000;
+const ESPERA_CATALOGO_MS = 10_000;
+/** Sin respuesta en este tiempo, la venta se guarda sin conexión. */
+const ESPERA_COBRO_MS = 8_000;
+/** Respuestas de un servidor caído o inalcanzable detrás del proxy: se vende igual. */
+const SERVIDOR_CAIDO = [502, 503, 504];
 
 type Sucursal = { id: number; nombre: string };
+
+/** Lo que hace falta de la venta en curso para cerrarla, online u offline. */
+type Cierre = {
+  payload: PayloadVenta;
+  resumen: ResumenVenta;
+  venta: VentaLocal;
+  filas: FilaCarrito[];
+  metodoPago: MetodoPago;
+  clienteNombre: string | null;
+  vuelto: Prisma.Decimal | null;
+};
 
 export function PantallaCaja({
   usuario,
   sucursales,
 }: {
-  usuario: { id: number; rol: Rol };
+  usuario: { id: number; rol: Rol; nombre: string };
   /** Solo para un administrador sin sucursal asignada y con más de una para elegir. */
   sucursales: readonly Sucursal[];
 }) {
@@ -65,7 +91,8 @@ export function PantallaCaja({
 
   // ------------------------------------------------------------ Catálogo
   const [sucursalId, setSucursalId] = useState<number | null>(null);
-  const [catalogo, setCatalogo] = useState<Catalogo | null>(null);
+  const [registro, setRegistro] = useState<RegistroCatalogo | null>(null);
+  const [pendientes, setPendientes] = useState<VentaPendiente[]>([]);
   const [errorCatalogo, setErrorCatalogo] = useState<string | null>(null);
   const [cargandoCatalogo, setCargandoCatalogo] = useState(false);
 
@@ -75,16 +102,37 @@ export function PantallaCaja({
   /** Momento del último cobro: un catálogo pedido antes llega con stock viejo. */
   const ultimaVenta = useRef(0);
 
+  // Lo que se muestra: el catálogo del servidor (o el guardado) menos lo que
+  // ya se vendió sin conexión y espera en la cola.
+  const catalogo: Catalogo | null = useMemo(
+    () => (registro ? aplicarPendientes(registro.catalogo, pendientes) : null),
+    [registro, pendientes],
+  );
+
+  const claveActual = useCallback(
+    () => claveCatalogo(usuario.id, sucursalVigente.current),
+    [usuario.id],
+  );
+
+  /** Relee del dispositivo la cola y el catálogo guardado (los cambia el motor de sincronización). */
+  const recargarLocal = useCallback(async () => {
+    setPendientes(await listarPendientes());
+    const guardado = await leerCatalogo(claveActual());
+    if (guardado && guardado.clave === claveActual()) setRegistro(guardado);
+  }, [claveActual]);
+
   const cargarCatalogo = useCallback(async () => {
     const pedidoEn = Date.now();
     const pedida = sucursalId;
+    const clave = claveCatalogo(usuario.id, pedida);
     setCargandoCatalogo(true);
 
     try {
       const respuesta = await fetch(
         `/api/caja/catalogo${pedida !== null ? `?sucursalId=${pedida}` : ""}`,
-        { cache: "no-store" },
+        { cache: "no-store", signal: AbortSignal.timeout(ESPERA_CATALOGO_MS) },
       );
+      reportarRed(true);
       const cuerpo = (await respuesta.json().catch(() => null)) as
         | Catalogo
         | RespuestaError
@@ -93,6 +141,7 @@ export function PantallaCaja({
       if (pedida !== sucursalVigente.current) return;
 
       if (!respuesta.ok || !cuerpo || "error" in cuerpo) {
+        if (respuesta.status === 401) emitir({ tipo: "sesion", vencida: true });
         setErrorCatalogo(
           (cuerpo && "mensaje" in cuerpo ? cuerpo.mensaje : null) ??
             "No se pudo cargar el catálogo.",
@@ -101,28 +150,57 @@ export function PantallaCaja({
       }
 
       if (pedidoEn < ultimaVenta.current) return;
-      setCatalogo(cuerpo);
+      const nuevo: RegistroCatalogo = {
+        clave,
+        usuarioId: usuario.id,
+        catalogo: cuerpo,
+        obtenidoEn: pedidoEn,
+      };
+      await guardarCatalogo(nuevo);
+      if (pedida !== sucursalVigente.current) return;
+      setRegistro(nuevo);
       setErrorCatalogo(null);
-    } catch {
-      setErrorCatalogo("Sin conexión con el servidor. Se reintenta solo.");
+    } catch (error) {
+      if (esFallaDeRed(error)) reportarRed(false);
+
+      // Sin red: el último catálogo guardado en el dispositivo.
+      const guardado = await leerCatalogo(clave);
+      if (pedida !== sucursalVigente.current) return;
+      if (guardado) setRegistro((actual) => actual ?? guardado);
+      setErrorCatalogo(
+        guardado
+          ? "Sin conexión: se vende con el catálogo guardado y las ventas se sincronizan al volver la red."
+          : "Sin conexión y sin catálogo guardado en este dispositivo. Abrí la caja una vez con conexión.",
+      );
     } finally {
       setCargandoCatalogo(false);
     }
-  }, [sucursalId]);
+  }, [sucursalId, usuario.id]);
 
   useEffect(() => {
     if (necesitaSucursal) return;
 
+    // Lo guardado aparece al instante; el servidor lo reemplaza si responde.
+    void recargarLocal();
     void cargarCatalogo();
     const intervalo = setInterval(() => {
       if (navigator.onLine) void cargarCatalogo();
     }, REFRESCO_CATALOGO_MS);
     return () => clearInterval(intervalo);
-  }, [cargarCatalogo, necesitaSucursal]);
+  }, [cargarCatalogo, recargarLocal, necesitaSucursal]);
+
+  // La cola cambia desde el motor de sincronización (esta u otra pestaña).
+  useEffect(
+    () =>
+      escuchar((evento) => {
+        if (evento.tipo === "cola" || evento.tipo === "sincronizada") void recargarLocal();
+      }),
+    [recargarLocal],
+  );
 
   function elegirSucursal(id: number) {
     setSucursalId(id);
-    setCatalogo(null);
+    setRegistro(null);
     guardarSucursal(usuario.id, id);
   }
 
@@ -139,6 +217,7 @@ export function PantallaCaja({
   const [errorCobro, setErrorCobro] = useState<ErrorCobro>(null);
   const [exceso, setExceso] = useState<DatosExcesoCredito | null>(null);
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [impresion, setImpresion] = useState<DatosComprobante | null>(null);
 
   // El respaldo se lee recién en el cliente: en el render del servidor no
   // existe `localStorage`, y leerlo antes rompería la hidratación.
@@ -169,6 +248,14 @@ export function PantallaCaja({
   }, []);
 
   const limpiarFoco = useCallback(() => setFocoCantidad(null), []);
+  const terminarImpresion = useCallback(() => setImpresion(null), []);
+
+  // Al cargar, la búsqueda toma el foco en cuanto hay catálogo (antes está
+  // deshabilitada): el primer escaneo ya cae en el campo correcto.
+  const hayCatalogo = registro !== null;
+  useEffect(() => {
+    if (hayCatalogo) enfocarBuscador();
+  }, [hayCatalogo, enfocarBuscador]);
 
   // ------------------------------------------------------------ Derivados
   const productoPorId = useMemo(
@@ -335,18 +422,61 @@ export function PantallaCaja({
   async function cobrar(confirmarExcesoCredito = false) {
     if (enviandoRef.current || motivoBloqueo || !catalogo) return;
 
-    const payload: PayloadVenta = {
-      claveIdempotencia: carrito.claveIdempotencia,
-      canal: carrito.canal,
-      clienteId: carrito.clienteId,
+    // El administrador confirma el exceso de crédito acá mismo, con los datos
+    // del catálogo: así funciona también sin conexión. Si el servidor tiene
+    // un saldo más nuevo, igual vuelve a preguntar.
+    if (credito && esAdmin && !confirmarExcesoCredito) {
+      setExceso({
+        saldo: textoMonto(credito.saldo),
+        limite: textoMonto(credito.limite),
+        total: textoMonto(total),
+        exceso: textoMonto(credito.exceso),
+        puedeConfirmar: true,
+      });
+      return;
+    }
+
+    const items = filas.map((fila) => ({
+      productoId: fila.linea.productoId,
+      cantidad: fila.cantidad?.valida ? fila.cantidad.cantidad.toString() : "",
+    }));
+
+    const cierre: Cierre = {
+      payload: {
+        claveIdempotencia: carrito.claveIdempotencia,
+        canal: carrito.canal,
+        clienteId: carrito.clienteId,
+        metodoPago,
+        sucursalId: catalogo.sucursal.id,
+        notas: carrito.canal === "PEDIDO" ? carrito.notas.trim() || null : null,
+        confirmarExcesoCredito,
+        items,
+      },
+      resumen: {
+        sucursalNombre: catalogo.sucursal.nombre,
+        usuarioNombre: usuario.nombre,
+        clienteNombre: cliente?.nombre ?? null,
+        total: textoMonto(total),
+        lineas: filas.flatMap((fila) =>
+          fila.producto && fila.cantidad?.valida && fila.precioUnitario && fila.subtotal
+            ? [
+                {
+                  productoId: fila.producto.id,
+                  nombre: fila.producto.nombre,
+                  unidadVenta: fila.producto.unidadVenta,
+                  cantidad: fila.cantidad.cantidad.toString(),
+                  precioUnitario: textoMonto(fila.precioUnitario),
+                  subtotal: textoMonto(fila.subtotal),
+                },
+              ]
+            : [],
+        ),
+      },
+      venta: { items, clienteId: carrito.clienteId, metodoPago, total: textoMonto(total) },
+      filas,
       metodoPago,
-      sucursalId: catalogo.sucursal.id,
-      notas: carrito.canal === "PEDIDO" ? carrito.notas.trim() || null : null,
-      confirmarExcesoCredito,
-      items: filas.map((fila) => ({
-        productoId: fila.linea.productoId,
-        cantidad: fila.cantidad?.valida ? fila.cantidad.cantidad.toString() : "",
-      })),
+      clienteNombre: cliente?.nombre ?? null,
+      vuelto: vuelto && !vuelto.lt(0) ? vuelto : null,
     };
 
     enviandoRef.current = true;
@@ -354,19 +484,35 @@ export function PantallaCaja({
     setErrorCobro(null);
 
     try {
-      const respuesta = await fetch("/api/ventas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(ESPERA_COBRO_MS),
-      });
+      let respuesta: Response;
+      try {
+        respuesta = await fetch("/api/ventas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cierre.payload),
+          signal: AbortSignal.timeout(ESPERA_COBRO_MS),
+        });
+      } catch {
+        // Sin red o sin respuesta a tiempo: se cobra igual y se sincroniza
+        // después. Si este envío sí llegó, la clave evita el duplicado.
+        reportarRed(false);
+        await guardarSinConexion(cierre);
+        return;
+      }
+
+      reportarRed(true);
+      if (SERVIDOR_CAIDO.includes(respuesta.status)) {
+        await guardarSinConexion(cierre);
+        return;
+      }
+
       const cuerpo = (await respuesta.json().catch(() => null)) as
         | RespuestaVenta
         | RespuestaError
         | null;
 
       if (respuesta.ok && cuerpo && !("error" in cuerpo)) {
-        ventaRegistrada(cuerpo);
+        await ventaRegistrada(cuerpo, cierre);
         return;
       }
 
@@ -376,16 +522,10 @@ export function PantallaCaja({
         return;
       }
 
+      if (respuesta.status === 401) emitir({ tipo: "sesion", vencida: true });
       setErrorCobro({
         mensaje: error?.mensaje ?? `El servidor respondió con un error (${respuesta.status}).`,
         sesionVencida: respuesta.status === 401,
-      });
-    } catch {
-      // Red caída o sin respuesta a tiempo. La venta pudo haber llegado: el
-      // reintento usa la misma clave y el servidor no la duplica.
-      setErrorCobro({
-        mensaje:
-          "No hubo respuesta del servidor. Revisá la conexión y volvé a cobrar: si la venta ya se había registrado, no se duplica.",
       });
     } finally {
       enviandoRef.current = false;
@@ -393,48 +533,89 @@ export function PantallaCaja({
     }
   }
 
-  function ventaRegistrada(venta: RespuestaVenta) {
+  /** Descuenta la venta del catálogo guardado (y del que se ve). */
+  async function asentarEnCatalogo(venta: VentaLocal) {
     ultimaVenta.current = Date.now();
+    const base = (await leerCatalogo(claveActual())) ?? registro;
+    if (!base) return;
+    const nuevo = { ...base, catalogo: aplicarVenta(base.catalogo, venta) };
+    await guardarCatalogo(nuevo);
+    setRegistro(nuevo);
+  }
 
-    const productos = new Map(
-      filas.flatMap((fila) =>
-        fila.producto
-          ? [[fila.producto.id, { nombre: fila.producto.nombre, unidadVenta: fila.producto.unidadVenta }] as const]
-          : [],
-      ),
-    );
-
+  async function ventaRegistrada(venta: RespuestaVenta, cierre: Cierre) {
     setResultado({
-      venta,
-      metodoPago,
-      clienteNombre: cliente?.nombre ?? null,
-      vuelto: vuelto && !vuelto.lt(0) ? vuelto : null,
-      productos,
+      ventaId: venta.ventaId,
+      total: venta.total,
+      yaRegistrada: venta.yaRegistrada,
+      advertencias: venta.advertencias,
+      pendiente: null,
+      metodoPago: cierre.metodoPago,
+      clienteNombre: cierre.clienteNombre,
+      vuelto: cierre.vuelto,
+      productos: productosDe(cierre.filas),
     });
+    reiniciarVenta();
 
     // Stock y saldo se actualizan en el momento; el refresco del catálogo
     // trae después los valores definitivos.
-    if (!venta.yaRegistrada) {
-      setCatalogo((actual) =>
-        actual && {
-          ...actual,
-          productos: actual.productos.map((p) => {
-            const salida = pedidoPorProducto.get(p.id);
-            return salida ? { ...p, stock: textoCantidad(aDecimal(p.stock).minus(salida)) } : p;
-          }),
-          clientes:
-            metodoPago === "FIADO"
-              ? actual.clientes.map((c) =>
-                  c.id === carrito.clienteId
-                    ? { ...c, saldo: textoMonto(aDecimal(c.saldo).plus(venta.total)) }
-                    : c,
-                )
-              : actual.clientes,
-        },
-      );
+    if (!venta.yaRegistrada) await asentarEnCatalogo(cierre.venta);
+  }
+
+  async function guardarSinConexion(cierre: Cierre) {
+    const fechaCliente = new Date().toISOString();
+    const pendiente: VentaPendiente = {
+      claveIdempotencia: cierre.payload.claveIdempotencia,
+      payload: {
+        ...cierre.payload,
+        origenOffline: true,
+        fechaCliente,
+        usuarioIdOrigen: usuario.id,
+        // Offline se guarda lo que pagó el cliente: el servidor lo respeta.
+        items: cierre.resumen.lineas.map((linea) => ({
+          productoId: linea.productoId,
+          cantidad: linea.cantidad,
+          precioUnitario: linea.precioUnitario,
+        })),
+      },
+      usuarioId: usuario.id,
+      sucursalId: cierre.payload.sucursalId ?? 0,
+      fechaCliente,
+      estado: "PENDIENTE",
+      intentos: 0,
+      ultimoError: null,
+      proximoIntento: 0,
+      creadoEn: Date.now(),
+      resumen: cierre.resumen,
+    };
+
+    try {
+      await encolarVenta(pendiente);
+    } catch {
+      setErrorCobro({
+        mensaje:
+          "No hay conexión y este dispositivo no pudo guardar la venta. No se registró: reintentá cuando vuelva la red.",
+      });
+      return;
     }
 
-    // La próxima venta arranca con una clave nueva.
+    setPendientes((actuales) => [...actuales, pendiente]);
+    setResultado({
+      ventaId: null,
+      total: cierre.resumen.total,
+      yaRegistrada: false,
+      advertencias: [],
+      pendiente,
+      metodoPago: cierre.metodoPago,
+      clienteNombre: cierre.clienteNombre,
+      vuelto: cierre.vuelto,
+      productos: productosDe(cierre.filas),
+    });
+    reiniciarVenta();
+  }
+
+  /** La próxima venta arranca vacía y con una clave nueva. */
+  function reiniciarVenta() {
     setCarrito(carritoVacio());
     setMetodoElegido("EFECTIVO");
     setRecibido("");
@@ -572,11 +753,15 @@ export function PantallaCaja({
             role="alert"
             className="flex items-center gap-2 rounded-md bg-alerta-fondo px-3 py-2 text-[13px] text-alerta-tinta"
           >
-            <Icono nombre="alerta" tamano={15} />
-            {errorCatalogo}
-            {catalogo
-              ? ` Se muestran los datos de las ${formatoHora(new Date(catalogo.generadoEn))}.`
-              : ""}
+            <span className="shrink-0">
+              <Icono nombre="alerta" tamano={15} />
+            </span>
+            <span>
+              {errorCatalogo}
+              {catalogo
+                ? ` Datos de las ${formatoHora(new Date(catalogo.generadoEn))}.`
+                : ""}
+            </span>
           </p>
         ) : null}
       </section>
@@ -705,7 +890,28 @@ export function PantallaCaja({
         ) : null}
       </Dialogo>
 
-      <ResultadoVenta resultado={resultado} onNuevaVenta={nuevaVenta} />
+      <ResultadoVenta
+        resultado={resultado}
+        onNuevaVenta={nuevaVenta}
+        onImprimirPendiente={(pendiente) => setImpresion(comprobanteDePendiente(pendiente))}
+      />
+
+      <ImpresionAislada datos={impresion} onTerminar={terminarImpresion} />
     </div>
+  );
+}
+
+function productosDe(filas: readonly FilaCarrito[]) {
+  return new Map(
+    filas.flatMap((fila) =>
+      fila.producto
+        ? [
+            [
+              fila.producto.id,
+              { nombre: fila.producto.nombre, unidadVenta: fila.producto.unidadVenta },
+            ] as const,
+          ]
+        : [],
+    ),
   );
 }

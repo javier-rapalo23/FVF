@@ -6,6 +6,8 @@ import { auth, signOut } from "@/lib/auth";
 import { modulosVisibles, navegacionPorGrupo } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
+import { CerrarSesion } from "./_components/cerrar-sesion";
+import { EstadoConexion } from "./_components/estado-conexion";
 import { NavLateral } from "./_components/nav-lateral";
 import { NavMovil } from "./_components/nav-movil";
 
@@ -81,6 +83,8 @@ export default async function DashboardLayout({
         </div>
 
         <div className="flex items-center gap-3">
+          <EstadoConexion usuario={{ id: Number(user.id), rol: user.rol }} />
+
           <div className="hidden text-right leading-tight sm:block">
             <p className="text-[13px] font-medium text-tinta">{user.name}</p>
             <p className="text-[11px] text-tinta-suave">{NOMBRE_ROL[user.rol]}</p>
@@ -90,16 +94,7 @@ export default async function DashboardLayout({
             {iniciales || "—"}
           </span>
 
-          <form action={cerrarSesion}>
-            <button
-              type="submit"
-              title="Cerrar sesión"
-              className="flex h-8 w-8 items-center justify-center rounded-md text-tinta-suave transition-colors duration-150 hover:bg-superficie-suave hover:text-tinta"
-            >
-              <Icono nombre="salir" />
-              <span className="sr-only">Cerrar sesión</span>
-            </button>
-          </form>
+          <CerrarSesion accion={cerrarSesion} usuarioId={Number(user.id)} />
         </div>
       </header>
 

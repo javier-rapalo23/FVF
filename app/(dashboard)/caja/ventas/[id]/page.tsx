@@ -39,6 +39,10 @@ export default async function DetalleVentaPage({
       total: true,
       notas: true,
       anulada: true,
+      creadoEn: true,
+      origenOffline: true,
+      requiereRevision: true,
+      observacionSync: true,
       sucursalId: true,
       sucursal: { select: { nombre: true } },
       usuario: { select: { nombre: true } },
@@ -89,6 +93,9 @@ export default async function DetalleVentaPage({
             ) : (
               <Etiqueta tono="exito">Vigente</Etiqueta>
             )}
+            {esAdmin && venta.requiereRevision ? (
+              <Etiqueta tono="alerta">Requiere revisión</Etiqueta>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             {esAdmin && !venta.anulada ? (
@@ -146,6 +153,24 @@ export default async function DetalleVentaPage({
               ) : null}
             </dl>
           </Tarjeta>
+
+          {venta.origenOffline ? (
+            <div
+              className={[
+                "rounded-xl px-5 py-4 text-[13px]",
+                esAdmin && venta.requiereRevision
+                  ? "bg-alerta-fondo text-alerta-tinta"
+                  : "bg-superficie-suave text-tinta-media",
+              ].join(" ")}
+            >
+              <p className="font-medium">
+                Cobrada sin conexión, sincronizada el {formatoFechaHora(venta.creadoEn)}
+              </p>
+              {esAdmin && venta.observacionSync ? (
+                <p className="mt-1">Revisar: {venta.observacionSync}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           {venta.anulacion ? (
             <div className="rounded-xl bg-peligro-fondo px-5 py-4 text-[13px] text-peligro-tinta">

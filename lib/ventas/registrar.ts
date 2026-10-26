@@ -1,9 +1,11 @@
 import { Prisma, type Canal, type MetodoPago } from "@prisma/client";
 
 import type { UsuarioActivo } from "@/lib/acceso";
+import { formatoMoneda } from "@/lib/formato";
 import { prisma } from "@/lib/prisma";
 
 import {
+  aDecimal,
   calcularSubtotal,
   calcularTotal,
   textoCantidad,
@@ -31,8 +33,14 @@ const METODOS = [
 ] as const satisfies readonly MetodoPago[];
 
 const PATRON_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Precio de una venta offline: monto con hasta 2 decimales, dentro de `Decimal(10,2)`. */
+const PATRON_PRECIO = /^\d{1,8}(\.\d{1,2})?$/;
 const MAXIMO_ITEMS = 200;
 const MAXIMO_NOTAS = 500;
+
+/** Ventana aceptada para la hora del dispositivo en una venta offline. */
+const FECHA_CLIENTE_ATRAS_MS = 7 * 24 * 60 * 60 * 1000;
+const FECHA_CLIENTE_ADELANTE_MS = 5 * 60 * 1000;
 
 /**
  * Margen de la transacción: descuenta stock línea por línea contra una base
@@ -99,6 +107,20 @@ export function validarPayloadVenta(crudo: unknown): PayloadVenta {
     invalido('"confirmarExcesoCredito" debe ser true o false.');
   }
 
+  if (p.origenOffline !== undefined && typeof p.origenOffline !== "boolean") {
+    invalido('"origenOffline" debe ser true o false.');
+  }
+  const offline = p.origenOffline === true;
+
+  if (offline) {
+    if (typeof p.fechaCliente !== "string" || Number.isNaN(Date.parse(p.fechaCliente))) {
+      invalido('Una venta offline necesita "fechaCliente" en formato ISO.');
+    }
+    if (!esIdPositivo(p.usuarioIdOrigen)) {
+      invalido('Una venta offline necesita "usuarioIdOrigen".');
+    }
+  }
+
   if (!Array.isArray(p.items) || p.items.length === 0) {
     invalido("La venta no tiene productos.");
   }
@@ -117,7 +139,18 @@ export function validarPayloadVenta(crudo: unknown): PayloadVenta {
         productoId: i.productoId,
       });
     }
-    return { productoId: i.productoId, cantidad: cantidad.cantidad.toString() };
+
+    // En una venta online el precio lo decide el servidor: si viene, se ignora.
+    if (!offline) return { productoId: i.productoId, cantidad: cantidad.cantidad.toString() };
+
+    if (typeof i.precioUnitario !== "string" || !PATRON_PRECIO.test(i.precioUnitario)) {
+      invalido('En una venta offline cada línea necesita "precioUnitario", ej. "18.00".');
+    }
+    return {
+      productoId: i.productoId,
+      cantidad: cantidad.cantidad.toString(),
+      precioUnitario: i.precioUnitario,
+    };
   });
 
   return {
@@ -129,6 +162,13 @@ export function validarPayloadVenta(crudo: unknown): PayloadVenta {
     notas,
     confirmarExcesoCredito: p.confirmarExcesoCredito === true,
     items,
+    ...(offline
+      ? {
+          origenOffline: true,
+          fechaCliente: p.fechaCliente as string,
+          usuarioIdOrigen: p.usuarioIdOrigen as number,
+        }
+      : {}),
   };
 }
 
@@ -138,7 +178,7 @@ export function validarPayloadVenta(crudo: unknown): PayloadVenta {
 async function ventaPorClave(claveIdempotencia: string): Promise<ResultadoRegistro | null> {
   const venta = await prisma.venta.findUnique({
     where: { claveIdempotencia },
-    select: { id: true, total: true },
+    select: { id: true, total: true, requiereRevision: true },
   });
   if (!venta) return null;
 
@@ -149,6 +189,7 @@ async function ventaPorClave(claveIdempotencia: string): Promise<ResultadoRegist
       total: textoMonto(venta.total),
       yaRegistrada: true,
       advertencias: [],
+      requiereRevision: venta.requiereRevision,
     },
   };
 }
@@ -162,28 +203,79 @@ function esClaveDuplicada(error: unknown): boolean {
 }
 
 /**
+ * Quién vendió. En una venta online, el usuario de la sesión. En una offline,
+ * `usuarioIdOrigen`: si sincroniza otra persona, solo se acepta cuando es
+ * administrador; un empleado no puede registrar ventas a nombre de otro.
+ */
+async function resolverVendedor(
+  usuario: UsuarioActivo,
+  payload: PayloadVenta,
+  observaciones: string[],
+): Promise<UsuarioActivo> {
+  if (!payload.origenOffline || payload.usuarioIdOrigen === usuario.id) return usuario;
+
+  if (usuario.rol !== "ADMINISTRADOR") {
+    throw new ErrorVenta(
+      "SIN_PERMISO",
+      403,
+      "Esta venta la cobró otro vendedor: la tiene que sincronizar él o un administrador.",
+    );
+  }
+
+  const origen = await prisma.usuario.findUnique({
+    where: { id: payload.usuarioIdOrigen },
+    select: { id: true, nombre: true, rol: true, sucursalId: true, activo: true },
+  });
+  if (!origen) invalido("El vendedor de la venta ya no existe.");
+  if (!origen.activo) observaciones.push(`El vendedor ${origen.nombre} está desactivado.`);
+
+  return { id: origen.id, nombre: origen.nombre, rol: origen.rol, sucursalId: origen.sucursalId };
+}
+
+/**
  * Registra una venta: valida reglas de canal, cliente y fiado, y en una sola
  * transacción crea la venta con su detalle, descuenta stock y, si es fiado,
  * carga el total a la cuenta del cliente.
  *
- * El servidor decide precios y totales; lo que mande el cliente se ignora.
+ * Online, el servidor decide precios y totales y una regla incumplida rechaza
+ * la venta. Offline (`origenOffline`), la venta ya ocurrió: se acepta el
+ * precio que pagó el cliente y las reglas que dependen del estado actual
+ * (producto o cliente desactivado, fiado, límite, precio, fecha) solo la
+ * marcan para revisión. Siguen siendo errores duros los datos que no existen,
+ * las cantidades inválidas y la falta de sucursal.
+ *
  * El payload ya tiene que venir de `validarPayloadVenta`.
  */
 export async function registrarVenta(
   usuario: UsuarioActivo,
   payload: PayloadVenta,
 ): Promise<ResultadoRegistro> {
+  const offline = payload.origenOffline === true;
+  const observaciones: string[] = [];
+
+  /** Regla que depende del estado actual: online rechaza, offline anota. */
+  function reglaBlanda(error: ErrorVenta, observacion: string) {
+    if (!offline) throw error;
+    observaciones.push(observacion);
+  }
+
+  /** Dato que no existe: online es 422, offline 400 (la venta queda en ERROR en la cola). */
+  const httpInexistente = offline ? 400 : 422;
+
+  // 1. Vendedor (en offline puede no ser el de la sesión).
+  const vendedor = await resolverVendedor(usuario, payload, observaciones);
+
   // 3. Idempotencia: un reintento devuelve la venta original sin tocar nada.
   const previa = await ventaPorClave(payload.claveIdempotencia);
   if (previa) return previa;
 
-  // 4. Sucursal. Solo un administrador sin sucursal puede elegirla.
+  // 4. Sucursal del vendedor. Solo un administrador sin sucursal puede elegirla.
   const sucursal = await resolverSucursal(
-    usuario,
-    usuario.rol === "ADMINISTRADOR" ? payload.sucursalId : null,
+    vendedor,
+    vendedor.rol === "ADMINISTRADOR" ? payload.sucursalId : null,
   );
 
-  // 5. Productos activos, cantidades según unidad y reglas de cliente.
+  // 5. Productos, cantidades según unidad y reglas de cliente.
   const idsProducto = [...new Set(payload.items.map((item) => item.productoId))];
   const productos = await prisma.producto.findMany({
     where: { id: { in: idsProducto } },
@@ -200,26 +292,37 @@ export async function registrarVenta(
 
   for (const id of idsProducto) {
     const producto = productoPorId.get(id);
-    if (!producto?.activo) {
+    if (!producto) {
       throw new ErrorVenta(
         "PRODUCTO_NO_DISPONIBLE",
-        422,
-        producto
-          ? `"${producto.nombre}" está desactivado y no se puede vender.`
-          : "Uno de los productos ya no existe.",
+        httpInexistente,
+        "Uno de los productos ya no existe.",
         { productoId: id },
+      );
+    }
+    if (!producto.activo) {
+      reglaBlanda(
+        new ErrorVenta(
+          "PRODUCTO_NO_DISPONIBLE",
+          422,
+          `"${producto.nombre}" está desactivado y no se puede vender.`,
+          { productoId: id },
+        ),
+        `"${producto.nombre}" estaba desactivado al sincronizar.`,
       );
     }
   }
 
+  // Pedido y fiado sin cliente son errores de la venta en sí, no del estado
+  // actual: la caja offline tampoco los permite.
   if (payload.clienteId === null) {
     if (payload.canal === "PEDIDO") {
-      throw new ErrorVenta("CLIENTE_REQUERIDO", 422, "Un pedido necesita un cliente.");
+      throw new ErrorVenta("CLIENTE_REQUERIDO", httpInexistente, "Un pedido necesita un cliente.");
     }
     if (payload.metodoPago === "FIADO") {
       throw new ErrorVenta(
         "CLIENTE_REQUERIDO",
-        422,
+        httpInexistente,
         "Para vender fiado hay que elegir el cliente.",
       );
     }
@@ -240,26 +343,34 @@ export async function registrarVenta(
           },
         });
 
-  if (payload.clienteId !== null && !cliente?.activo) {
-    throw new ErrorVenta(
-      "CLIENTE_INACTIVO",
-      422,
-      cliente
-        ? `${cliente.nombre} está desactivado.`
-        : "El cliente elegido ya no existe.",
-      { clienteId: payload.clienteId },
+  if (payload.clienteId !== null && !cliente) {
+    throw new ErrorVenta("CLIENTE_INACTIVO", httpInexistente, "El cliente elegido ya no existe.", {
+      clienteId: payload.clienteId,
+    });
+  }
+
+  if (cliente && !cliente.activo) {
+    reglaBlanda(
+      new ErrorVenta("CLIENTE_INACTIVO", 422, `${cliente.nombre} está desactivado.`, {
+        clienteId: cliente.id,
+      }),
+      `El cliente ${cliente.nombre} estaba desactivado al sincronizar.`,
     );
   }
 
   if (payload.metodoPago === "FIADO" && cliente && !cliente.fiadoHabilitado) {
-    throw new ErrorVenta(
-      "FIADO_NO_HABILITADO",
-      422,
-      `${cliente.nombre} no tiene el fiado habilitado.`,
-      { clienteId: cliente.id },
+    reglaBlanda(
+      new ErrorVenta(
+        "FIADO_NO_HABILITADO",
+        422,
+        `${cliente.nombre} no tiene el fiado habilitado.`,
+        { clienteId: cliente.id },
+      ),
+      `Venta fiado a ${cliente.nombre}, que ya no tiene el fiado habilitado.`,
     );
   }
 
+  const preciosDistintos = new Set<string>();
   const lineas = payload.items.map((item) => {
     const producto = productoPorId.get(item.productoId)!;
     const cantidad = validarCantidad(item.cantidad, producto.unidadVenta);
@@ -272,7 +383,19 @@ export async function registrarVenta(
       );
     }
 
-    const precioUnitario = precioSegunCliente(producto, cliente?.tipo);
+    // Offline se respeta lo que pagó el cliente; si no coincide con ninguno
+    // de los precios vigentes, se marca.
+    let precioUnitario = precioSegunCliente(producto, cliente?.tipo);
+    if (offline && item.precioUnitario !== undefined) {
+      precioUnitario = aDecimal(item.precioUnitario);
+      if (
+        !precioUnitario.eq(producto.precioMinorista) &&
+        !precioUnitario.eq(producto.precioMayorista)
+      ) {
+        preciosDistintos.add(`${producto.nombre} (${formatoMoneda(precioUnitario)})`);
+      }
+    }
+
     return {
       productoId: producto.id,
       cantidad: cantidad.cantidad,
@@ -281,7 +404,26 @@ export async function registrarVenta(
     };
   });
 
+  if (preciosDistintos.size > 0) {
+    observaciones.push(`Precio distinto al vigente: ${[...preciosDistintos].join(", ")}.`);
+  }
+
   const total = calcularTotal(lineas.map((linea) => linea.subtotal));
+
+  // Fecha: la del dispositivo, si es razonable; si no, la del servidor.
+  let fecha: Date | undefined;
+  if (offline && payload.fechaCliente) {
+    const ahora = Date.now();
+    const delCliente = new Date(payload.fechaCliente);
+    const diferencia = delCliente.getTime() - ahora;
+    if (diferencia < -FECHA_CLIENTE_ATRAS_MS || diferencia > FECHA_CLIENTE_ADELANTE_MS) {
+      observaciones.push(
+        `La hora del dispositivo (${payload.fechaCliente}) estaba fuera de rango; se usó la del servidor.`,
+      );
+    } else {
+      fecha = delCliente;
+    }
+  }
 
   // Lo que sale de cada producto, sumando las líneas repetidas (dos pesadas).
   // Se descuenta en orden de id para que dos ventas simultáneas tomen los
@@ -298,29 +440,41 @@ export async function registrarVenta(
   // 6. Todo o nada.
   try {
     return await prisma.$transaction(async (tx) => {
+      const notasRevision = [...observaciones];
+
       if (payload.metodoPago === "FIADO" && cliente && cliente.limiteCredito !== null) {
         const saldo = await saldoDeCliente(tx, cliente.id);
         const saldoFinal = saldo.plus(total);
 
         if (saldoFinal.gt(cliente.limiteCredito)) {
-          const puedeConfirmar = usuario.rol === "ADMINISTRADOR";
-          if (!(puedeConfirmar && payload.confirmarExcesoCredito)) {
-            const datos: DatosExcesoCredito = {
-              saldo: textoMonto(saldo),
-              limite: textoMonto(cliente.limiteCredito),
-              total: textoMonto(total),
-              exceso: textoMonto(saldoFinal.minus(cliente.limiteCredito)),
-              puedeConfirmar,
-            };
-            throw new ErrorVenta(
-              "LIMITE_CREDITO_EXCEDIDO",
-              422,
-              `La venta supera el límite de crédito de ${cliente.nombre}.`,
-              datos,
+          const exceso = saldoFinal.minus(cliente.limiteCredito);
+          if (offline) {
+            notasRevision.push(
+              `Supera el límite de crédito de ${cliente.nombre} por ${formatoMoneda(exceso)} ` +
+                `(saldo previo ${formatoMoneda(saldo)}, límite ${formatoMoneda(cliente.limiteCredito)}).`,
             );
+          } else {
+            const puedeConfirmar = usuario.rol === "ADMINISTRADOR";
+            if (!(puedeConfirmar && payload.confirmarExcesoCredito)) {
+              const datos: DatosExcesoCredito = {
+                saldo: textoMonto(saldo),
+                limite: textoMonto(cliente.limiteCredito),
+                total: textoMonto(total),
+                exceso: textoMonto(exceso),
+                puedeConfirmar,
+              };
+              throw new ErrorVenta(
+                "LIMITE_CREDITO_EXCEDIDO",
+                422,
+                `La venta supera el límite de crédito de ${cliente.nombre}.`,
+                datos,
+              );
+            }
           }
         }
       }
+
+      const requiereRevision = notasRevision.length > 0;
 
       const venta = await tx.venta.create({
         data: {
@@ -328,10 +482,14 @@ export async function registrarVenta(
           canal: payload.canal,
           metodoPago: payload.metodoPago,
           clienteId: cliente?.id ?? null,
-          usuarioId: usuario.id,
+          usuarioId: vendedor.id,
           sucursalId: sucursal.id,
           notas: payload.notas,
           total,
+          ...(fecha ? { fecha } : {}),
+          origenOffline: offline,
+          requiereRevision,
+          observacionSync: requiereRevision ? notasRevision.join(" ") : null,
           detalles: {
             create: lineas.map((linea) => ({
               productoId: linea.productoId,
@@ -366,7 +524,13 @@ export async function registrarVenta(
 
       if (payload.metodoPago === "FIADO" && cliente) {
         await tx.movimientoCuenta.create({
-          data: { clienteId: cliente.id, ventaId: venta.id, tipo: "CARGO", monto: total },
+          data: {
+            clienteId: cliente.id,
+            ventaId: venta.id,
+            tipo: "CARGO",
+            monto: total,
+            ...(fecha ? { fecha } : {}),
+          },
         });
       }
 
@@ -377,6 +541,7 @@ export async function registrarVenta(
           total: textoMonto(total),
           yaRegistrada: false,
           advertencias,
+          requiereRevision,
         },
       };
     }, OPCIONES_TRANSACCION);

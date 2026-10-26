@@ -122,6 +122,11 @@ body {
     display: none !important;
   }
 
+  /* Comprobante impreso desde otra pantalla (ver ImpresionAislada). */
+  body.imprimir-aislado > :not(.zona-impresion) {
+    display: none !important;
+  }
+
   body {
     background: #fff;
   }
