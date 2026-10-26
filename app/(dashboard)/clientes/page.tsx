@@ -8,7 +8,7 @@ import { BarraFiltros } from "@/components/ui/filtros";
 import { Icono } from "@/components/ui/icono";
 import { AvisoGuardado, EncabezadoPagina, EstadoVacio } from "@/components/ui/pagina";
 import { Celda, Fila, Tabla } from "@/components/ui/tabla";
-import { precio } from "@/lib/formato";
+import { formatoMoneda } from "@/lib/formato";
 import {
   filtroActivo,
   leerParametros,
@@ -142,7 +142,7 @@ export default async function ClientesPage({
                       ) : cliente.limiteCredito === null ? (
                         "Sin tope"
                       ) : (
-                        `Hasta ${precio(cliente.limiteCredito.toString())}`
+                        `Hasta ${formatoMoneda(cliente.limiteCredito.toString())}`
                       )}
                     </Celda>
                   </Fila>

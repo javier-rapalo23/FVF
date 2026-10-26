@@ -15,7 +15,7 @@ export function NavMovil({ modulos }: { modulos: readonly Modulo[] }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-1.5 overflow-x-auto border-b border-borde bg-superficie px-4 py-2 md:hidden">
+    <nav className="no-imprimir flex gap-1.5 overflow-x-auto border-b border-borde bg-superficie px-4 py-2 md:hidden">
       {modulos.map((modulo) => {
         const activo =
           pathname === modulo.href || pathname.startsWith(`${modulo.href}/`);

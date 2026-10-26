@@ -94,6 +94,25 @@ const GLIFOS = {
     </>
   ),
   menos: <path d="M5.5 12h13" />,
+  cerrar: (
+    <>
+      <path d="m6.5 6.5 11 11" />
+      <path d="m17.5 6.5-11 11" />
+    </>
+  ),
+  imprimir: (
+    <>
+      <path d="M7 8.5V3.5h10v5" />
+      <rect x="3.5" y="8.5" width="17" height="8" rx="1.5" />
+      <path d="M7 14h10v6.5H7z" />
+    </>
+  ),
+  recargar: (
+    <>
+      <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+      <path d="M19.5 4.5v4h-4" />
+    </>
+  ),
   basura: (
     <>
       <path d="M4.5 7h15" />

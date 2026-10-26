@@ -1,5 +1,44 @@
+import type { Rol } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+
+export type UsuarioActivo = {
+  id: number;
+  nombre: string;
+  rol: Rol;
+  sucursalId: number | null;
+};
+
+/**
+ * Usuario de la sesión, confirmado contra la base: existe y está activo.
+ *
+ * Es la guardia de los Route Handlers de /api (que el middleware no cubre) y
+ * de las pantallas de caja. Igual que `exigirAdministrador`, no se confía solo
+ * en el JWT: el rol y la sucursal que se devuelven son los vigentes en la base.
+ *
+ * Devuelve `null` en vez de lanzar para que cada llamador responda a su modo
+ * (401 en la API, redirect en una página).
+ */
+export async function requerirUsuarioActivo(): Promise<UsuarioActivo | null> {
+  const sesion = await auth();
+  const id = Number(sesion?.user?.id);
+  if (!Number.isInteger(id) || id <= 0) return null;
+
+  const usuario = await prisma.usuario.findUnique({
+    where: { id },
+    select: { id: true, nombre: true, rol: true, sucursalId: true, activo: true },
+  });
+
+  if (!usuario?.activo) return null;
+
+  return {
+    id: usuario.id,
+    nombre: usuario.nombre,
+    rol: usuario.rol,
+    sucursalId: usuario.sucursalId,
+  };
+}
 
 /**
  * Guardia de las server actions de administración.

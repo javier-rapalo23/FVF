@@ -113,6 +113,20 @@ body {
   background-size: 32px 100%;
 }
 
+/*
+ * Impresión (comprobante interno). Se oculta todo el chrome de la app; cada
+ * pantalla marca con `.no-imprimir` lo que no va al papel.
+ */
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -66,7 +66,7 @@ export function FormularioCliente({
             etiqueta="Teléfono"
             type="tel"
             defaultValue={inicial.telefono}
-            placeholder="+56 9 1234 5678"
+            placeholder="+504 9876-5432"
             maxLength={30}
             error={errores.telefono}
           />
@@ -127,15 +127,15 @@ export function FormularioCliente({
             >
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-tinta-suave">
-                  $
+                  L
                 </span>
                 <input
                   id="limiteCredito"
                   name="limiteCredito"
                   type="number"
-                  inputMode="numeric"
+                  inputMode="decimal"
                   min={0}
-                  step={1}
+                  step={0.01}
                   value={limite}
                   onChange={(evento) => setLimite(evento.target.value)}
                   placeholder="Sin tope"

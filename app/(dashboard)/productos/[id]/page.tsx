@@ -48,7 +48,7 @@ export default async function EditarProductoPage({
           categoriaId: producto.categoriaId,
           proveedorId: producto.proveedorId,
           unidadVenta: producto.unidadVenta,
-          // Los precios son CLP: se muestran sin los ",00" del Decimal.
+          // Sin ceros de relleno: "18.5" en vez de "18.50" en el input.
           precioMinorista: String(aNumero(producto.precioMinorista.toString())),
           precioMayorista: String(aNumero(producto.precioMayorista.toString())),
           fechaVencimiento: producto.fechaVencimiento

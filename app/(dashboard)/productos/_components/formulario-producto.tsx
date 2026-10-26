@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/formulario";
 import { Icono } from "@/components/ui/icono";
 import { Segmentado } from "@/components/ui/segmentado";
+import { UNIDAD_PESO } from "@/lib/config";
 import { sufijoUnidad } from "@/lib/formato";
 import { FORMULARIO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
 
@@ -36,7 +37,7 @@ export type ProductoFormulario = {
 
 const UNIDADES: readonly { valor: UnidadVenta; label: string }[] = [
   { valor: "UNIDAD", label: "Por unidad" },
-  { valor: "PESO", label: "Por peso (kg)" },
+  { valor: "PESO", label: `Por peso (${UNIDAD_PESO})` },
   { valor: "PAQUETE", label: "Por paquete" },
 ];
 
@@ -249,15 +250,15 @@ function CampoPrecio({
     <GrupoCampo etiqueta={etiqueta} htmlFor={id} error={error} ayuda={ayuda}>
       <div className="relative">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-tinta-suave">
-          $
+          L
         </span>
         <input
           id={id}
           name={id}
           type="number"
-          inputMode="numeric"
+          inputMode="decimal"
           min={0}
-          step={1}
+          step={0.01}
           value={valor}
           onChange={(evento) => onCambio(evento.target.value)}
           required

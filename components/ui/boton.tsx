@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 
 type Variante = "primario" | "secundario" | "fantasma" | "peligro";
 type Tamano = "sm" | "md" | "lg";
@@ -22,6 +22,8 @@ const TAMANOS: Record<Tamano, string> = {
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   variante?: Variante;
   tamano?: Tamano;
+  /** En React 19 `ref` es una prop más y llega al `button` con el resto. */
+  ref?: Ref<HTMLButtonElement>;
 };
 
 /** Clases del botón, para dar el mismo aspecto a un `<Link>`. */

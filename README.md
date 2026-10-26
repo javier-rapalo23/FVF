@@ -2,7 +2,7 @@
 
 Sistema de punto de venta y gestión para verdulería / minimarket: venta minorista y mayorista, cuentas corrientes (fiado) con clientes, cuentas por pagar con proveedores y un modelo de datos preparado para múltiples sucursales.
 
-> **Estado**: base técnica y datos maestros. Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos y el ABM de categorías, productos, clientes, proveedores y usuarios. Los módulos operativos (ventas, compras y stock, cuentas, cierres, reportes) todavía son pantallas placeholder.
+> **Estado**: base técnica, datos maestros y caja/ventas (Etapa 1, online). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día y anulación. El resto de los módulos operativos (compras y stock, cuentas, cierres, reportes) todavía son pantallas placeholder. La venta sin conexión (Etapa 2) está especificada en `Especificacion_Caja_Ventas.md` y pendiente.
 
 ---
 
@@ -65,7 +65,7 @@ La app queda en http://localhost:3000.
 
 Son credenciales de desarrollo: no usarlas en producción.
 
-El seed además crea la sucursal "Local Principal", las categorías Verduras / Frutas / Granos / Snacks, un proveedor, un cliente minorista y tres productos con stock inicial. Es idempotente (usa `upsert`), así que se puede correr varias veces sin duplicar datos.
+El seed además crea la sucursal "Local Principal", las categorías Verduras / Frutas / Granos / Snacks, un proveedor, cinco productos con stock inicial (por peso, por unidad y por paquete con código de barras; uno con poco stock y otro vencido, para probar las advertencias de caja) y cuatro clientes: minorista con fiado, mayorista con fiado y límite, mayorista con fiado sin tope y minorista sin fiado. Es idempotente (usa `upsert` o busca por nombre), así que se puede correr varias veces sin duplicar datos ni pisar lo cargado a mano.
 
 ---
 
@@ -192,4 +192,4 @@ Los importes usan `Decimal(10,2)` y las cantidades `Decimal(10,3)`, para poder v
 
 ## Próximos pasos
 
-El módulo crítico es **ventas/caja**: tiene que ser rápido y sin fricción para el empleado, y a futuro soportar guardado local si se cae la conexión. Conviene estructurarlo pensando en eso desde el principio (estado de la venta desacoplado de la red, cola de sincronización).
+La caja ya registra ventas con una clave de idempotencia por carrito y carga el catálogo completo en el cliente (`GET /api/caja/catalogo`): son las bases de la **Etapa 2, venta sin conexión** (PWA, cola en IndexedDB y sincronización), que se empieza una vez validada la Etapa 1.
