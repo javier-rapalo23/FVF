@@ -129,6 +129,7 @@ async function main() {
     create: {
       nombre: "María González",
       tipo: TipoCliente.MINORISTA,
+      fiadoHabilitado: true,
       limiteCredito: "50000.00",
       telefono: "+56 9 8765 4321",
     },

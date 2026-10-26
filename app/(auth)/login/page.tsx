@@ -15,7 +15,13 @@ const CAPACIDADES = [
   "Cierres de caja, gastos y reportes por sucursal",
 ];
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ motivo?: string }>;
+}) {
+  const { motivo } = await searchParams;
+
   return (
     <main className="flex min-h-screen">
       {/*
@@ -80,6 +86,15 @@ export default function LoginPage() {
               Usá tu cuenta del sistema para entrar a la caja.
             </p>
           </header>
+
+          {motivo === "sesion" ? (
+            <p
+              role="status"
+              className="mb-4 rounded-md bg-info-fondo px-3 py-2.5 text-[13px] leading-snug text-info-tinta"
+            >
+              Tu acceso cambió o fue desactivado. Volvé a ingresar.
+            </p>
+          ) : null}
 
           <LoginForm />
 

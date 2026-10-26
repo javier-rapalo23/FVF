@@ -7,9 +7,8 @@ import { Boton } from "@/components/ui/boton";
 import { CLASES_INPUT } from "@/components/ui/campo";
 import { Etiqueta, Tecla } from "@/components/ui/etiqueta";
 import { Icono } from "@/components/ui/icono";
+import { Segmentado } from "@/components/ui/segmentado";
 import { cantidad as fmtCantidad, pasoUnidad, precio, sufijoUnidad } from "@/lib/formato";
-
-import { Segmentado } from "./segmentado";
 
 export type ProductoCaja = {
   id: number;
@@ -27,6 +26,7 @@ export type ClienteCaja = {
   id: number;
   nombre: string;
   tipo: TipoCliente;
+  fiadoHabilitado: boolean;
   limiteCredito: number | null;
 };
 
@@ -97,8 +97,8 @@ export function CajaPos({
   const total = detalle.reduce((suma, item) => suma + item.subtotal, 0);
   const unidades = detalle.length;
 
-  // Fiado necesita un cliente al que cargarle la cuenta corriente.
-  const fiadoDisponible = cliente !== null;
+  // Fiado necesita un cliente con cuenta corriente habilitada.
+  const fiadoDisponible = cliente?.fiadoHabilitado ?? false;
   useEffect(() => {
     if (metodoPago === "FIADO" && !fiadoDisponible) setMetodoPago("EFECTIVO");
   }, [fiadoDisponible, metodoPago]);
@@ -484,7 +484,9 @@ export function CajaPos({
                         onClick={() => setMetodoPago(metodo.valor)}
                         title={
                           bloqueado
-                            ? "Elegí un cliente para cargar la venta a su cuenta"
+                            ? cliente
+                              ? `${cliente.nombre} no tiene el fiado habilitado`
+                              : "Elegí un cliente para cargar la venta a su cuenta"
                             : undefined
                         }
                         className={[

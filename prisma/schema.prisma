@@ -75,6 +75,7 @@ model Proveedor {
   id       Int     @id @default(autoincrement())
   nombre   String
   telefono String?
+  activo   Boolean @default(true)
 
   productos            Producto[]
   compras              Compra[]
@@ -131,13 +132,15 @@ model Usuario {
 }
 
 model Cliente {
-  id            Int         @id @default(autoincrement())
-  nombre        String
-  tipo          TipoCliente @default(MINORISTA)
-  limiteCredito Decimal?    @db.Decimal(10, 2)
-  telefono      String?
-  activo        Boolean     @default(true)
-  creadoEn      DateTime    @default(now())
+  id              Int         @id @default(autoincrement())
+  nombre          String
+  tipo            TipoCliente @default(MINORISTA)
+  /// Si el cliente puede comprar fiado. El tope lo fija `limiteCredito`; sin límite = sin tope.
+  fiadoHabilitado Boolean     @default(false)
+  limiteCredito   Decimal?    @db.Decimal(10, 2)
+  telefono        String?
+  activo          Boolean     @default(true)
+  creadoEn        DateTime    @default(now())
 
   ventas            Venta[]
   movimientosCuenta MovimientoCuenta[]

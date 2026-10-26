@@ -2,7 +2,7 @@
 
 Sistema de punto de venta y gestión para verdulería / minimarket: venta minorista y mayorista, cuentas corrientes (fiado) con clientes, cuentas por pagar con proveedores y un modelo de datos preparado para múltiples sucursales.
 
-> **Estado**: base técnica del proyecto. Están armados el stack, el esquema de datos, la autenticación con roles y el routing con permisos. Los módulos de negocio (ventas, stock, reportes) todavía son pantallas placeholder.
+> **Estado**: base técnica y datos maestros. Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos y el ABM de categorías, productos, clientes, proveedores y usuarios. Los módulos operativos (ventas, compras y stock, cuentas, cierres, reportes) todavía son pantallas placeholder.
 
 ---
 
@@ -102,9 +102,13 @@ Ninguna página repite la validación. Para agregar un módulo nuevo alcanza con
 
 Las rutas de `/api` que se agreguen más adelante quedan fuera del matcher del middleware: deben validar la sesión con `auth()` dentro del route handler.
 
+**Server actions.** El middleware protege páginas, no acciones: una server action se puede invocar desde cualquier ruta con sesión. Por eso toda acción que escribe datos de administración empieza con `await exigirAdministrador()` ([lib/acceso.ts](lib/acceso.ts)), que confirma el rol contra la base y no solo contra el JWT.
+
 ### Cómo funciona la autenticación
 
 La sesión es por **JWT** (no hay tabla de sesiones): el token lleva `id`, `rol` y `sucursalId`, para que el middleware pueda resolver permisos en el Edge Runtime sin consultar la base de datos.
+
+Como el token congela el rol del momento del login, el layout del dashboard lo compara con la base en cada carga: si el usuario fue desactivado o le cambiaron rol o sucursal, lo manda a `/api/sesion/cerrar`, que cierra la sesión y vuelve al login.
 
 La configuración está partida en dos a propósito:
 
@@ -122,7 +126,9 @@ app/
     _components/           nav lateral y placeholder de módulos
     caja/                  ventas (ambos roles)
     cierres/               cierres de caja (ambos roles)
-    productos/             solo ADMINISTRADOR
+    productos/             solo ADMINISTRADOR (incluye categorias/)
+      nuevo/, [id]/        alta y edición; igual en clientes, proveedores y usuarios
+      actions.ts           server actions del módulo
     clientes/              solo ADMINISTRADOR
     proveedores/           solo ADMINISTRADOR
     compras/               solo ADMINISTRADOR
@@ -131,10 +137,16 @@ app/
     usuarios/              solo ADMINISTRADOR
     layout.tsx             valida sesión + navegación según rol
   api/auth/[...nextauth]/  handlers de Auth.js
+  api/sesion/cerrar/       cierra una sesión desactualizada respecto de la base
   page.tsx                 redirige al módulo por defecto según el rol
+components/ui/             primitivas de interfaz (botón, campo, tabla, filtros, formulario…)
 lib/
+  acceso.ts                guardia de rol para server actions
   auth.ts                  Auth.js con el provider de credenciales (Node)
   auth.config.ts           configuración compartida, edge-safe (middleware)
+  formato.ts               formato de precios, cantidades y fechas
+  formulario.ts            lectura y validación de formularios en server actions
+  listados.ts              parámetros de búsqueda y filtros de los listados
   permissions.ts           tabla de módulos y helpers de rol
   prisma.ts                cliente de Prisma (singleton)
 prisma/
@@ -153,7 +165,7 @@ middleware.ts              protección de rutas y chequeo de rol
 El schema completo está en [prisma/schema.prisma](prisma/schema.prisma). Entidades principales:
 
 - **Catálogo**: `Sucursal`, `Categoria`, `Proveedor`, `Producto`, `Stock` (stock por producto y sucursal).
-- **Personas**: `Usuario` (con rol y sucursal), `Cliente` (minorista/mayorista, con límite de crédito).
+- **Personas**: `Usuario` (con rol y sucursal), `Cliente` (minorista/mayorista; `fiadoHabilitado` define si puede comprar fiado y `limiteCredito` el tope, vacío = sin tope).
 - **Operaciones**: `Venta` / `DetalleVenta`, `Compra` / `DetalleCompra`, `CierreCaja`, `Gasto`.
 - **Cuentas**: `MovimientoCuenta` (fiado de clientes) y `MovimientoProveedor` (cuentas por pagar).
 

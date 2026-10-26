@@ -47,7 +47,13 @@ export default async function CajaPage() {
     }),
     prisma.cliente.findMany({
       where: { activo: true },
-      select: { id: true, nombre: true, tipo: true, limiteCredito: true },
+      select: {
+        id: true,
+        nombre: true,
+        tipo: true,
+        fiadoHabilitado: true,
+        limiteCredito: true,
+      },
       orderBy: { nombre: "asc" },
     }),
     prisma.sucursal.findUnique({
@@ -76,6 +82,7 @@ export default async function CajaPage() {
         id: cliente.id,
         nombre: cliente.nombre,
         tipo: cliente.tipo,
+        fiadoHabilitado: cliente.fiadoHabilitado,
         limiteCredito: cliente.limiteCredito
           ? aNumero(cliente.limiteCredito.toString())
           : null,

@@ -54,6 +54,37 @@ export function pasoUnidad(unidad: UnidadVenta): number {
   return unidad === "PESO" ? 0.1 : 1;
 }
 
+/*
+ * Fechas sin hora (vencimientos): se guardan a medianoche UTC, así que se
+ * muestran y comparan en UTC para que no "retrocedan" un día con el huso de
+ * Chile. El "hoy" sí se toma en hora local del negocio.
+ */
+const FECHA = new Intl.DateTimeFormat("es-CL", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+const HOY_LOCAL = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Santiago" });
+
+const MS_DIA = 86_400_000;
+
+export function fecha(valor: Date): string {
+  return FECHA.format(valor);
+}
+
+/** `YYYY-MM-DD`, el formato de `<input type="date">`. */
+export function fechaISO(valor: Date): string {
+  return valor.toISOString().slice(0, 10);
+}
+
+/** Días desde hoy (hora de Chile) hasta la fecha. Negativo si ya pasó. */
+export function diasHasta(valor: Date): number {
+  const hoy = new Date(`${HOY_LOCAL.format(new Date())}T00:00:00.000Z`);
+  return Math.round((valor.getTime() - hoy.getTime()) / MS_DIA);
+}
+
 export function cantidad(valor: Numerico, unidad: UnidadVenta): string {
   const n = aNumero(valor);
   const formateada =

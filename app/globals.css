@@ -91,6 +91,18 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/*
+ * Select nativo con el chevron del set de iconos. Se mantiene el control
+ * nativo (teclado, lectores de pantalla, móvil) y solo se reemplaza la flecha.
+ */
+.select-nativo {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a968e' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m8.5 10.5 3.5 3.5 3.5-3.5'/%3E%3C/svg%3E");
+  background-position: right 0.6rem center;
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+}
+
 /* Textura muy tenue para que los paneles oscuros no se lean planos. */
 .trama-lineas {
   background-image: linear-gradient(

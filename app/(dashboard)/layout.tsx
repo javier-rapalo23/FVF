@@ -24,12 +24,30 @@ export default async function DashboardLayout({
 
   const { user } = sesion;
 
-  const sucursal = user.sucursalId
-    ? await prisma.sucursal.findUnique({
-        where: { id: user.sucursalId },
-        select: { nombre: true },
-      })
-    : null;
+  const [vigente, sucursal] = await Promise.all([
+    prisma.usuario.findUnique({
+      where: { id: Number(user.id) },
+      select: { activo: true, rol: true, sucursalId: true },
+    }),
+    user.sucursalId
+      ? prisma.sucursal.findUnique({
+          where: { id: user.sucursalId },
+          select: { nombre: true },
+        })
+      : null,
+  ]);
+
+  // El JWT guarda rol y sucursal del momento del login. Si un administrador
+  // desactivó al usuario o le cambió el acceso, la sesión se cierra para que
+  // vuelva a entrar con los permisos actuales.
+  if (
+    !vigente ||
+    !vigente.activo ||
+    vigente.rol !== user.rol ||
+    vigente.sucursalId !== user.sucursalId
+  ) {
+    redirect("/api/sesion/cerrar");
+  }
 
   const iniciales = (user.name ?? "")
     .split(" ")

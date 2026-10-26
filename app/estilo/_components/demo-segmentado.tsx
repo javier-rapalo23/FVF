@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Segmentado } from "@/app/(dashboard)/caja/_components/segmentado";
+import { Segmentado } from "@/components/ui/segmentado";
 
 /** Envoltorio con estado para mostrar el control segmentado funcionando. */
 export function DemoSegmentado() {

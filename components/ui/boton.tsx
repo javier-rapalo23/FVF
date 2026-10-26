@@ -24,6 +24,22 @@ type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   tamano?: Tamano;
 };
 
+/** Clases del botón, para dar el mismo aspecto a un `<Link>`. */
+export function clasesBoton(
+  variante: Variante = "secundario",
+  tamano: Tamano = "md",
+  className = "",
+): string {
+  return [
+    "inline-flex items-center justify-center rounded-md font-medium",
+    "transition-[background-color,border-color,transform] duration-150",
+    "disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100",
+    VARIANTES[variante],
+    TAMANOS[tamano],
+    className,
+  ].join(" ");
+}
+
 export function Boton({
   variante = "secundario",
   tamano = "md",
@@ -34,14 +50,7 @@ export function Boton({
   return (
     <button
       type={type}
-      className={[
-        "inline-flex items-center justify-center rounded-md font-medium",
-        "transition-[background-color,border-color,transform] duration-150",
-        "disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100",
-        VARIANTES[variante],
-        TAMANOS[tamano],
-        className,
-      ].join(" ")}
+      className={clasesBoton(variante, tamano, className)}
       {...props}
     />
   );
