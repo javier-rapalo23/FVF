@@ -41,8 +41,10 @@
   --color-exito-fondo: #edf3ec;
   --color-exito-tinta: #346538;
   --color-alerta-fondo: #fbf3db;
+  --color-alerta-fondo-hover: #f6e9c2;
   --color-alerta-tinta: #956400;
   --color-peligro-fondo: #fdebec;
+  --color-peligro-fondo-hover: #fbdfe0;
   --color-peligro-tinta: #9f2f2d;
   --color-info-fondo: #e1f3fe;
   --color-info-tinta: #1f6c9f;
@@ -60,6 +62,52 @@
   /* --- Sombras: prácticamente inexistentes ----------------------------- */
   --shadow-sutil: 0 1px 2px rgba(31, 30, 28, 0.04);
   --shadow-elevado: 0 2px 8px rgba(31, 30, 28, 0.05);
+}
+
+/*
+ * Modo oscuro. Se redefinen los mismos tokens, así ningún componente necesita
+ * variantes `dark:`. Carbón cálido como lienzo (nunca negro puro) y la escala
+ * de marca se aclara donde se usa como texto y se oscurece donde es fondo
+ * tenue. El tema lo fija el script de app/layout.tsx antes de pintar.
+ */
+html[data-tema="oscuro"] {
+  color-scheme: dark;
+
+  --color-marca-50: #1c2b20;
+  --color-marca-100: #22402b;
+  --color-marca-200: #2c5636;
+  --color-marca-300: #86bc93;
+  --color-marca-400: #6fb382;
+  --color-marca-500: #4ea366;
+  --color-marca-600: #2e8447;
+  --color-marca-700: #3a9455;
+
+  --color-lienzo: #171614;
+  --color-superficie: #1f1e1c;
+  --color-superficie-suave: #262522;
+  --color-carbon: #0f0e0d;
+  --color-carbon-suave: #2a2926;
+
+  --color-borde: #33312d;
+  --color-borde-fuerte: #46433e;
+
+  --color-tinta: #ecebe7;
+  --color-tinta-media: #a9a59d;
+  --color-tinta-suave: #7d7a73;
+
+  --color-exito-fondo: #1e2e20;
+  --color-exito-tinta: #8fc795;
+  --color-alerta-fondo: #332a14;
+  --color-alerta-fondo-hover: #3f3418;
+  --color-alerta-tinta: #e2b450;
+  --color-peligro-fondo: #3a1d1d;
+  --color-peligro-fondo-hover: #472323;
+  --color-peligro-tinta: #f0908d;
+  --color-info-fondo: #142a38;
+  --color-info-tinta: #7ec0ea;
+
+  --shadow-sutil: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-elevado: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 html,
@@ -122,8 +170,26 @@ body {
     display: none !important;
   }
 
+  /* Comprobante impreso desde otra pantalla (ver ImpresionAislada). */
+  body.imprimir-aislado > :not(.zona-impresion) {
+    display: none !important;
+  }
+
   body {
     background: #fff;
+  }
+
+  /* El papel siempre es claro: en impresión se vuelve a la paleta clara. */
+  html[data-tema="oscuro"] {
+    color-scheme: light;
+    --color-lienzo: #ffffff;
+    --color-superficie: #ffffff;
+    --color-superficie-suave: #fbfbfa;
+    --color-borde: #e6e4df;
+    --color-borde-fuerte: #d4d1c9;
+    --color-tinta: #1f1e1c;
+    --color-tinta-media: #6f6c66;
+    --color-tinta-suave: #9a968e;
   }
 }
 

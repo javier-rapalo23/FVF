@@ -7,7 +7,8 @@ import { cantidad, formatoMoneda } from "@/lib/formato";
 import { NOMBRE_METODO } from "./opciones";
 
 export type DatosComprobante = {
-  id: number;
+  /** `null` mientras la venta espera sincronizarse: el número lo asigna el servidor. */
+  id: number | null;
   fecha: Date;
   sucursal: string;
   cajero: string;
@@ -40,6 +41,12 @@ export function Comprobante({ venta }: { venta: DatosComprobante }) {
         </p>
       ) : null}
 
+      {venta.id === null ? (
+        <p className="mb-3 border-2 border-dashed border-black py-1 text-center text-[12px] font-bold">
+          PENDIENTE DE SINCRONIZAR
+        </p>
+      ) : null}
+
       <header className="text-center">
         <p className="text-[14px] font-bold uppercase">{NOMBRE_NEGOCIO}</p>
         <p>{venta.sucursal}</p>
@@ -48,7 +55,10 @@ export function Comprobante({ venta }: { venta: DatosComprobante }) {
       <div className="my-3 border-t border-dashed border-black" />
 
       <dl className="space-y-0.5">
-        <Dato etiqueta="Venta N°" valor={String(venta.id).padStart(6, "0")} />
+        <Dato
+          etiqueta="Venta N°"
+          valor={venta.id === null ? "pendiente" : String(venta.id).padStart(6, "0")}
+        />
         <Dato etiqueta="Fecha" valor={formatoFechaHora(venta.fecha)} />
         <Dato etiqueta="Cajero" valor={venta.cajero} />
         <Dato etiqueta="Cliente" valor={venta.cliente ?? "Consumidor final"} />
