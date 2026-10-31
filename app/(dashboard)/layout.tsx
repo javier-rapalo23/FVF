@@ -6,6 +6,7 @@ import { auth, signOut } from "@/lib/auth";
 import { modulosVisibles, navegacionPorGrupo } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
+import { AlternarTema } from "./_components/alternar-tema";
 import { CerrarSesion } from "./_components/cerrar-sesion";
 import { EstadoConexion } from "./_components/estado-conexion";
 import { NavLateral } from "./_components/nav-lateral";
@@ -93,6 +94,8 @@ export default async function DashboardLayout({
           <span className="flex h-8 w-8 items-center justify-center rounded-md border border-borde bg-superficie-suave font-mono text-[11px] font-medium text-tinta-media">
             {iniciales || "—"}
           </span>
+
+          <AlternarTema />
 
           <CerrarSesion accion={cerrarSesion} usuarioId={Number(user.id)} />
         </div>

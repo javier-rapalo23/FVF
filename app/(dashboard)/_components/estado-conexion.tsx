@@ -87,7 +87,7 @@ export function EstadoConexion({ usuario }: { usuario: { id: number; rol: Rol } 
         <Link
           href="/caja/pendientes"
           title="Ventas cobradas sin conexión que todavía no llegaron al servidor"
-          className="cifras rounded-md bg-alerta-fondo px-2 py-1 text-[12px] font-medium text-alerta-tinta transition-colors duration-150 hover:bg-[#f6e9c2]"
+          className="cifras rounded-md bg-alerta-fondo px-2 py-1 text-[12px] font-medium text-alerta-tinta transition-colors duration-150 hover:bg-alerta-fondo-hover"
         >
           {pendientes} pendiente{pendientes === 1 ? "" : "s"}
         </Link>
