@@ -1,4 +1,4 @@
-import { PrismaClient, Rol, TipoCliente, UnidadVenta } from "@prisma/client";
+import { CondicionPago, PrismaClient, Rol, TipoCliente, UnidadVenta } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -199,6 +199,119 @@ async function main() {
       select: { id: true },
     });
     if (!existente) await prisma.cliente.create({ data: cliente });
+  }
+
+  /*
+   * Compras de ejemplo: una de contado al proveedor habitual y una a crédito
+   * a un segundo proveedor, con productos de las tres unidades. Así el saldo
+   * por pagar y el último costo tienen datos desde el primer arranque.
+   *
+   * No tocan el stock: el stock inicial de arriba ya representa lo que hay en
+   * el local. Se identifican por su clave de idempotencia fija, así que el
+   * seed no las duplica.
+   */
+  const proveedorCredito =
+    (await prisma.proveedor.findFirst({
+      where: { nombre: "Agrícola San Juan" },
+    })) ??
+    (await prisma.proveedor.create({
+      data: { nombre: "Agrícola San Juan", telefono: "+504 9555-0101" },
+    }));
+
+  const admin = await prisma.usuario.findUniqueOrThrow({ where: { email: "admin@ferrera.com" } });
+  const productoPorIdInterno = new Map(
+    (
+      await prisma.producto.findMany({
+        where: { idInterno: { in: productos.map((p) => p.idInterno) } },
+        select: { id: true, idInterno: true },
+      })
+    ).map((p) => [p.idInterno, p.id]),
+  );
+
+  /** Mediodía de Tegucigalpa (18:00 UTC) de hace `dias` días. */
+  const mediodiaHace = (dias: number) => {
+    const ahora = new Date();
+    return new Date(
+      Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate() - dias, 18),
+    );
+  };
+
+  const compras = [
+    {
+      claveIdempotencia: "00000000-0000-4000-8000-000000000001",
+      proveedorId: proveedor.id,
+      condicionPago: CondicionPago.CONTADO,
+      numeroFactura: "A-1001",
+      fecha: mediodiaHace(3),
+      lineas: [
+        { idInterno: 1001, cantidad: "50.000", costo: "12.00" },
+        { idInterno: 1003, cantidad: "48.000", costo: "24.00" },
+        { idInterno: 1005, cantidad: "12.000", costo: "34.00" },
+      ],
+    },
+    {
+      claveIdempotencia: "00000000-0000-4000-8000-000000000002",
+      proveedorId: proveedorCredito.id,
+      condicionPago: CondicionPago.CREDITO,
+      numeroFactura: "SJ-0457",
+      fecha: mediodiaHace(1),
+      lineas: [
+        { idInterno: 1002, cantidad: "60.000", costo: "7.50" },
+        { idInterno: 1004, cantidad: "40.000", costo: "9.50" },
+      ],
+    },
+  ];
+
+  for (const compra of compras) {
+    const existe = await prisma.compra.findUnique({
+      where: { claveIdempotencia: compra.claveIdempotencia },
+      select: { id: true },
+    });
+    if (existe) continue;
+
+    const detalles = compra.lineas.map((l) => ({
+      productoId: productoPorIdInterno.get(l.idInterno)!,
+      cantidad: l.cantidad,
+      costoUnitario: l.costo,
+      subtotal: (Number(l.cantidad) * Number(l.costo)).toFixed(2),
+    }));
+    const total = detalles.reduce((suma, d) => suma + Number(d.subtotal), 0).toFixed(2);
+
+    await prisma.$transaction(async (tx) => {
+      const creada = await tx.compra.create({
+        data: {
+          claveIdempotencia: compra.claveIdempotencia,
+          proveedorId: compra.proveedorId,
+          usuarioId: admin.id,
+          sucursalId: sucursal.id,
+          fecha: compra.fecha,
+          numeroFactura: compra.numeroFactura,
+          condicionPago: compra.condicionPago,
+          total,
+          detalles: { create: detalles },
+        },
+      });
+
+      if (compra.condicionPago === CondicionPago.CREDITO) {
+        await tx.movimientoProveedor.create({
+          data: {
+            proveedorId: compra.proveedorId,
+            compraId: creada.id,
+            tipo: "CARGO",
+            monto: total,
+            fecha: compra.fecha,
+          },
+        });
+      }
+
+      // Solo si el producto todavía no tiene costo: no pisa compras reales.
+      for (const d of detalles) {
+        await tx.producto.updateMany({
+          where: { id: d.productoId, costoActual: null },
+          data: { costoActual: d.costoUnitario },
+        });
+      }
+    });
   }
 
   console.log("Seed completado.");

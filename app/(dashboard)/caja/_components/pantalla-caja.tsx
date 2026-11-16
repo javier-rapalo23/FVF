@@ -28,7 +28,7 @@ import {
   calcularVuelto,
   textoMonto,
   validarCantidad,
-} from "@/lib/ventas/calculos";
+} from "@/lib/calculos";
 import { precioSegunCliente } from "@/lib/ventas/precios";
 import type {
   Catalogo,

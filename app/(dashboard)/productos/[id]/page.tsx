@@ -32,13 +32,14 @@ export default async function EditarProductoPage({
       <Volver href="/productos">Productos</Volver>
       <EncabezadoPagina
         titulo={producto.nombre}
-        descripcion="El stock no se edita acá: se mueve con compras y ventas."
+        descripcion="El stock y el costo no se editan acá: se mueven con compras y ventas."
         meta={producto.activo ? null : <Etiqueta>Inactivo</Etiqueta>}
       />
 
       <FormularioProducto
         accion={guardarProducto.bind(null, producto.id)}
         esNuevo={false}
+        costoActual={producto.costoActual?.toFixed(2) ?? null}
         categorias={categorias}
         proveedores={proveedores}
         inicial={{

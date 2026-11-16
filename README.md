@@ -2,7 +2,7 @@
 
 Sistema de punto de venta y gestión para verdulería / minimarket: venta minorista y mayorista, cuentas corrientes (fiado) con clientes, cuentas por pagar con proveedores y un modelo de datos preparado para múltiples sucursales.
 
-> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. El resto de los módulos operativos (compras y stock, cuentas, cierres, reportes) todavía son pantallas placeholder.
+> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. Compras (Etapa 1): registro de compras de contado o a crédito que suben el stock, último costo por producto, saldo por pagar a proveedores y anulación. Falta la Etapa 2 de inventario (conteos, merma, kardex) y el resto de los módulos operativos (cuentas, cierres, reportes) todavía son pantallas placeholder.
 
 ---
 
@@ -65,7 +65,7 @@ La app queda en http://localhost:3000.
 
 Son credenciales de desarrollo: no usarlas en producción.
 
-El seed además crea la sucursal "Local Principal", las categorías Verduras / Frutas / Granos / Snacks, un proveedor, cinco productos con stock inicial (por peso, por unidad y por paquete con código de barras; uno con poco stock y otro vencido, para probar las advertencias de caja) y cuatro clientes: minorista con fiado, mayorista con fiado y límite, mayorista con fiado sin tope y minorista sin fiado. Es idempotente (usa `upsert` o busca por nombre), así que se puede correr varias veces sin duplicar datos ni pisar lo cargado a mano.
+El seed además crea la sucursal "Local Principal", las categorías Verduras / Frutas / Granos / Snacks, dos proveedores con una compra de contado y otra a crédito (no mueven el stock inicial; dejan último costo y saldo por pagar), cinco productos con stock inicial (por peso, por unidad y por paquete con código de barras; uno con poco stock y otro vencido, para probar las advertencias de caja) y cuatro clientes: minorista con fiado, mayorista con fiado y límite, mayorista con fiado sin tope y minorista sin fiado. Es idempotente (usa `upsert` o busca por nombre), así que se puede correr varias veces sin duplicar datos ni pisar lo cargado a mano.
 
 ---
 
@@ -131,7 +131,7 @@ app/
       actions.ts           server actions del módulo
     clientes/              solo ADMINISTRADOR
     proveedores/           solo ADMINISTRADOR
-    compras/               solo ADMINISTRADOR
+    compras/               solo ADMINISTRADOR (listado, nueva/, [id]/ con anulación)
     gastos/                solo ADMINISTRADOR
     reportes/              solo ADMINISTRADOR
     usuarios/              solo ADMINISTRADOR
@@ -142,6 +142,9 @@ app/
 components/ui/             primitivas de interfaz (botón, campo, tabla, filtros, formulario…)
 lib/
   acceso.ts                guardia de rol para server actions
+  calculos.ts              aritmética de montos y cantidades (ventas y compras)
+  compras/                 registro, anulación y saldo de proveedores
+  ventas/                  registro, anulación, catálogo y saldo de clientes
   auth.ts                  Auth.js con el provider de credenciales (Node)
   auth.config.ts           configuración compartida, edge-safe (middleware)
   formato.ts               formato de precios, cantidades y fechas
@@ -167,7 +170,8 @@ El schema completo está en [prisma/schema.prisma](prisma/schema.prisma). Entida
 - **Catálogo**: `Sucursal`, `Categoria`, `Proveedor`, `Producto`, `Stock` (stock por producto y sucursal).
 - **Personas**: `Usuario` (con rol y sucursal), `Cliente` (minorista/mayorista; `fiadoHabilitado` define si puede comprar fiado y `limiteCredito` el tope, vacío = sin tope).
 - **Operaciones**: `Venta` / `DetalleVenta`, `Compra` / `DetalleCompra`, `CierreCaja`, `Gasto`.
-- **Cuentas**: `MovimientoCuenta` (fiado de clientes) y `MovimientoProveedor` (cuentas por pagar).
+- **Cuentas**: `MovimientoCuenta` (fiado de clientes) y `MovimientoProveedor` (cuentas por pagar: `CARGO` por compra a crédito, `PAGO`, y `ANULACION` al anular una compra a crédito).
+- **Costo**: `Producto.costoActual` es el costo unitario de la última compra (ISV incluido); `DetalleCompra` guarda la foto de cada compra.
 
 Los importes usan `Decimal(10,2)` y las cantidades `Decimal(10,3)`, para poder vender por peso. Los modelos y campos están en español, igual que el resto de la documentación del proyecto (diagrama ER, DBML).
 
@@ -198,4 +202,4 @@ El service worker solo se registra en producción. Para probarlo en local: `npm 
 
 ## Próximos pasos
 
-Con la caja completa, siguen los módulos que dependen de ella: cierre de caja (que deberá bloquearse mientras haya ventas sin sincronizar), abonos a cuentas de clientes, compras y stock, y reportes.
+Sigue la Etapa 2 de [Especificacion_Compras_Stock.md](Especificacion_Compras_Stock.md) (inventario, conteos, merma y kardex) y después: cierre de caja (que deberá bloquearse mientras haya ventas sin sincronizar), abonos a cuentas de clientes y pagos a proveedores, y reportes.

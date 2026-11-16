@@ -3,9 +3,9 @@ import { Prisma, type UnidadVenta } from "@prisma/client";
 import { CANTIDAD_MAXIMA_LINEA } from "@/lib/config";
 
 /*
- * Aritmética de la venta. Funciones puras sobre `Prisma.Decimal`, nunca sobre
- * `number`: corren igual en el servidor (que decide) y en la caja (que solo
- * muestra), así que lo que ve el empleado es lo que se cobra.
+ * Aritmética de ventas y compras. Funciones puras sobre `Prisma.Decimal`,
+ * nunca sobre `number`: corren igual en el servidor (que decide) y en la
+ * pantalla (que solo muestra), así que lo que se ve es lo que se registra.
  */
 
 export type ValorDecimal = string | number | Prisma.Decimal;
@@ -58,14 +58,18 @@ export type ResultadoCantidad =
 
 /**
  * Regla de cantidad por línea:
- * - mayor que cero y hasta `CANTIDAD_MAXIMA_LINEA`;
+ * - mayor que cero y hasta `maximo` (por defecto, el tope de caja);
  * - por peso, hasta 3 decimales;
  * - por unidad o paquete, entera.
  *
  * Sin `unidad` valida solo la forma general (lo que el servidor puede
  * comprobar antes de cargar los productos).
  */
-export function validarCantidad(texto: string, unidad?: UnidadVenta): ResultadoCantidad {
+export function validarCantidad(
+  texto: string,
+  unidad?: UnidadVenta,
+  maximo: number = CANTIDAD_MAXIMA_LINEA,
+): ResultadoCantidad {
   const limpio = texto.trim();
   if (!PATRON_CANTIDAD.test(limpio)) {
     return { valida: false, mensaje: "Ingresá una cantidad válida." };
@@ -75,8 +79,8 @@ export function validarCantidad(texto: string, unidad?: UnidadVenta): ResultadoC
   if (cantidad.lte(0)) {
     return { valida: false, mensaje: "La cantidad tiene que ser mayor que cero." };
   }
-  if (cantidad.gt(CANTIDAD_MAXIMA_LINEA)) {
-    return { valida: false, mensaje: `Máximo ${CANTIDAD_MAXIMA_LINEA} por línea.` };
+  if (cantidad.gt(maximo)) {
+    return { valida: false, mensaje: `Máximo ${maximo} por línea.` };
   }
   if (cantidad.decimalPlaces() > 3) {
     return { valida: false, mensaje: "Hasta 3 decimales." };
@@ -86,4 +90,22 @@ export function validarCantidad(texto: string, unidad?: UnidadVenta): ResultadoC
   }
 
   return { valida: true, cantidad };
+}
+
+/** Monto positivo con hasta 2 decimales, dentro de `Decimal(10,2)`. */
+const PATRON_MONTO = /^\d{1,8}(\.\d{1,2})?$/;
+
+export type ResultadoMonto =
+  | { valido: true; monto: Prisma.Decimal }
+  | { valido: false; mensaje: string };
+
+/** Costo o precio unitario: mayor que cero, hasta 2 decimales. */
+export function validarMontoPositivo(texto: string): ResultadoMonto {
+  const limpio = texto.trim();
+  if (!PATRON_MONTO.test(limpio)) {
+    return { valido: false, mensaje: "Ingresá un monto válido, con hasta 2 decimales." };
+  }
+  const monto = aDecimal(limpio);
+  if (monto.lte(0)) return { valido: false, mensaje: "Tiene que ser mayor que cero." };
+  return { valido: true, monto };
 }

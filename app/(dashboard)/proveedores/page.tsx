@@ -8,6 +8,8 @@ import { BarraFiltros } from "@/components/ui/filtros";
 import { Icono } from "@/components/ui/icono";
 import { AvisoGuardado, EncabezadoPagina, EstadoVacio } from "@/components/ui/pagina";
 import { Celda, Fila, Tabla } from "@/components/ui/tabla";
+import { saldosDeProveedores } from "@/lib/compras/saldo";
+import { formatoMoneda } from "@/lib/formato";
 import {
   filtroActivo,
   leerParametros,
@@ -50,6 +52,11 @@ export default async function ProveedoresPage({
     }),
     prisma.proveedor.count(),
   ]);
+
+  const saldos = await saldosDeProveedores(
+    prisma,
+    proveedores.map((p) => p.id),
+  );
 
   return (
     <section>
@@ -98,6 +105,7 @@ export default async function ProveedoresPage({
                   { label: "Teléfono" },
                   { label: "Productos", derecha: true, ocultaMovil: true },
                   { label: "Compras", derecha: true, ocultaMovil: true },
+                  { label: "Saldo por pagar", derecha: true },
                 ]}
               >
                 {proveedores.map((proveedor) => (
@@ -122,6 +130,7 @@ export default async function ProveedoresPage({
                     <Celda derecha ocultaMovil className="cifras text-tinta-media">
                       {proveedor._count.compras}
                     </Celda>
+                    <SaldoCelda saldo={saldos.get(proveedor.id)?.toString() ?? "0"} />
                   </Fila>
                 ))}
               </Tabla>
@@ -134,5 +143,17 @@ export default async function ProveedoresPage({
         </>
       )}
     </section>
+  );
+}
+
+function SaldoCelda({ saldo }: { saldo: string }) {
+  const valor = Number(saldo);
+  return (
+    <Celda
+      derecha
+      className={`cifras whitespace-nowrap ${valor > 0 ? "font-medium text-tinta" : "text-tinta-suave"}`}
+    >
+      {valor === 0 ? "—" : formatoMoneda(saldo)}
+    </Celda>
   );
 }

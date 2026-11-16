@@ -13,7 +13,7 @@ import { diaDelNegocio, esDiaValido, formatoDiaLargo, formatoHora, inicioYFinDel
 import { formatoMoneda } from "@/lib/formato";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
-import { aDecimal, calcularTotal } from "@/lib/ventas/calculos";
+import { aDecimal, calcularTotal } from "@/lib/calculos";
 
 import { PESTANAS_CAJA } from "../_components/pestanas";
 import { NOMBRE_METODO } from "../_components/opciones";
