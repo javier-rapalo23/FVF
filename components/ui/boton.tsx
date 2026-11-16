@@ -10,7 +10,7 @@ const VARIANTES: Record<Variante, string> = {
   secundario:
     "bg-superficie text-tinta border border-borde hover:bg-superficie-suave hover:border-borde-fuerte active:scale-[0.99]",
   fantasma: "text-tinta-media hover:bg-superficie-suave hover:text-tinta",
-  peligro: "bg-peligro-fondo text-peligro-tinta hover:bg-[#fbdfe0]",
+  peligro: "bg-peligro-fondo text-peligro-tinta hover:bg-peligro-fondo-hover",
 };
 
 const TAMANOS: Record<Tamano, string> = {

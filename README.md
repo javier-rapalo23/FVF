@@ -2,7 +2,7 @@
 
 Sistema de punto de venta y gestión para verdulería / minimarket: venta minorista y mayorista, cuentas corrientes (fiado) con clientes, cuentas por pagar con proveedores y un modelo de datos preparado para múltiples sucursales.
 
-> **Estado**: base técnica, datos maestros y caja/ventas (Etapa 1, online). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día y anulación. El resto de los módulos operativos (compras y stock, cuentas, cierres, reportes) todavía son pantallas placeholder. La venta sin conexión (Etapa 2) está especificada en `Especificacion_Caja_Ventas.md` y pendiente.
+> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. El resto de los módulos operativos (compras y stock, cuentas, cierres, reportes) todavía son pantallas placeholder.
 
 ---
 
@@ -17,7 +17,7 @@ Sistema de punto de venta y gestión para verdulería / minimarket: venta minori
 | Estilos | Tailwind CSS 4 |
 | Deploy | Vercel (app) + Railway (Postgres) |
 
-Dependencias fuera de la lista del stack: **bcryptjs**, para hashear y verificar las contraseñas que guarda `Usuario.passwordHash` (el schema exige un hash y Auth.js no trae uno propio). Se eligió `bcryptjs` (JS puro) en lugar de `bcrypt` porque no requiere compilación nativa en Vercel. **tsx** se usa solo en desarrollo, para ejecutar el seed escrito en TypeScript.
+Dependencias fuera de la lista del stack: **bcryptjs**, para hashear y verificar las contraseñas que guarda `Usuario.passwordHash` (el schema exige un hash y Auth.js no trae uno propio). Se eligió `bcryptjs` (JS puro) en lugar de `bcrypt` porque no requiere compilación nativa en Vercel. **tsx** se usa solo en desarrollo, para ejecutar el seed escrito en TypeScript. **idb** envuelve IndexedDB, donde la caja guarda el catálogo y la cola de ventas sin conexión (la API nativa es muy verbosa). El service worker (`public/sw.js`) está escrito a mano en vez de usar `@serwist/next`: solo hace falta abrir /caja sin red, y Serwist exige un plugin de webpack en `next.config`.
 
 ---
 
@@ -190,6 +190,12 @@ Los importes usan `Decimal(10,2)` y las cantidades `Decimal(10,3)`, para poder v
 
 ---
 
+## Caja sin conexión
+
+Si se cae internet, la caja sigue cobrando: el service worker sirve `/caja` y `/caja/pendientes` desde la caché, el catálogo sale de IndexedDB y cada venta queda en una cola local que se sincroniza sola al volver la red (o con "Sincronizar ahora" en `/caja/pendientes`). El servidor nunca rechaza una venta offline por reglas que dependen del estado actual (límite de crédito, cliente o producto desactivado, precio o fecha): la registra con `requiereRevision` y el administrador la ve marcada en las ventas del día.
+
+El service worker solo se registra en producción. Para probarlo en local: `npm run build && npm start`, abrir `/caja` una vez con conexión y después cortar la red (en las herramientas del navegador o apagando el servidor).
+
 ## Próximos pasos
 
-La caja ya registra ventas con una clave de idempotencia por carrito y carga el catálogo completo en el cliente (`GET /api/caja/catalogo`): son las bases de la **Etapa 2, venta sin conexión** (PWA, cola en IndexedDB y sincronización), que se empieza una vez validada la Etapa 1.
+Con la caja completa, siguen los módulos que dependen de ella: cierre de caja (que deberá bloquearse mientras haya ventas sin sincronizar), abonos a cuentas de clientes, compras y stock, y reportes.

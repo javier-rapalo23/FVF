@@ -27,7 +27,10 @@ export default async function CajaPage() {
   return (
     <section>
       <Pestanas items={PESTANAS_CAJA} activa="/caja" />
-      <PantallaCaja usuario={{ id: usuario.id, rol: usuario.rol }} sucursales={sucursales} />
+      <PantallaCaja
+        usuario={{ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre }}
+        sucursales={sucursales}
+      />
     </section>
   );
 }

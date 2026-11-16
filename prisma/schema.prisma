@@ -167,6 +167,12 @@ model Venta {
   claveIdempotencia String     @unique
   notas             String?
   creadoEn          DateTime   @default(now())
+  /// Cobrada sin conexión y sincronizada después. `fecha` es la del dispositivo.
+  origenOffline     Boolean    @default(false)
+  /// Venta offline registrada aunque incumplía una regla vigente al sincronizar.
+  requiereRevision  Boolean    @default(false)
+  /// Por qué se marcó para revisión.
+  observacionSync   String?
 
   detalles          DetalleVenta[]
   movimientosCuenta MovimientoCuenta[]

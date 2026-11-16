@@ -64,6 +64,8 @@ export default async function VentasDelDiaPage({
         metodoPago: true,
         total: true,
         anulada: true,
+        origenOffline: true,
+        requiereRevision: true,
         cliente: { select: { nombre: true } },
         usuario: { select: { nombre: true } },
         sucursal: { select: { nombre: true } },
@@ -183,12 +185,22 @@ export default async function VentasDelDiaPage({
               <Celda ocultaMovil className="text-tinta-media">
                 {venta.usuario.nombre}
               </Celda>
-              <Celda>
+              <Celda className="whitespace-nowrap">
                 {venta.anulada ? (
                   <Etiqueta tono="peligro">Anulada</Etiqueta>
                 ) : (
                   <Etiqueta tono="exito">Vigente</Etiqueta>
                 )}
+                {esAdmin && venta.requiereRevision ? (
+                  <Etiqueta tono="alerta" className="ml-1.5">
+                    Revisar
+                  </Etiqueta>
+                ) : null}
+                {venta.origenOffline ? (
+                  <span className="ml-1.5 text-[11px] text-tinta-suave" title="Cobrada sin conexión">
+                    offline
+                  </span>
+                ) : null}
               </Celda>
               <Celda
                 derecha

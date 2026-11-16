@@ -41,7 +41,12 @@ export type Catalogo = {
 
 // ----------------------------------------------------------------- Ventas
 
-export type ItemVenta = { productoId: number; cantidad: string };
+export type ItemVenta = {
+  productoId: number;
+  cantidad: string;
+  /** Solo en ventas offline: el precio que el cliente pagó. */
+  precioUnitario?: string;
+};
 
 export type PayloadVenta = {
   claveIdempotencia: string;
@@ -52,6 +57,16 @@ export type PayloadVenta = {
   notas: string | null;
   confirmarExcesoCredito: boolean;
   items: ItemVenta[];
+  /*
+   * Venta cobrada sin conexión que llega al sincronizar. Siempre se registra
+   * (el producto ya salió del local); lo que no cumpla las reglas vigentes se
+   * marca para revisión en lugar de rechazarse.
+   */
+  origenOffline?: boolean;
+  /** ISO, hora del dispositivo al cobrar. */
+  fechaCliente?: string;
+  /** Quién vendió, aunque sincronice otro usuario. */
+  usuarioIdOrigen?: number;
 };
 
 export type AdvertenciaVenta = {
@@ -65,6 +80,8 @@ export type RespuestaVenta = {
   total: string;
   yaRegistrada: boolean;
   advertencias: AdvertenciaVenta[];
+  /** Venta offline registrada con observaciones (ver `Venta.observacionSync`). */
+  requiereRevision: boolean;
 };
 
 export type PayloadAnulacion = { motivo: string; reingresaStock: boolean };
