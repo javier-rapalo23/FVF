@@ -91,7 +91,18 @@ function inicioDeDia(dia: string): Date {
   return new Date(medianocheUtc - desfaseZona(new Date(medianocheUtc)));
 }
 
-function sumarDias(dia: string, dias: number): string {
+/**
+ * Mediodía local de un día `YYYY-MM-DD`. Para fechas "de calendario" (el día
+ * de una factura): a esa hora el día es el mismo en UTC y en la zona del
+ * negocio, así que nunca se corre al anterior ni al siguiente.
+ */
+export function mediodiaDelDia(dia: string): Date {
+  if (!esDiaValido(dia)) throw new Error(`Día inválido: ${dia}`);
+  return new Date(inicioDeDia(dia).getTime() + 12 * 60 * 60 * 1000);
+}
+
+/** Suma (o resta, con negativos) días a un día `YYYY-MM-DD`. */
+export function sumarDias(dia: string, dias: number): string {
   const fecha = new Date(`${dia}T00:00:00.000Z`);
   fecha.setUTCDate(fecha.getUTCDate() + dias);
   return fecha.toISOString().slice(0, 10);

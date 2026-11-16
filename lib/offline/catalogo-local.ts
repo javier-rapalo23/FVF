@@ -1,6 +1,6 @@
 import type { MetodoPago } from "@prisma/client";
 
-import { aDecimal, textoCantidad, textoMonto } from "@/lib/ventas/calculos";
+import { aDecimal, textoCantidad, textoMonto } from "@/lib/calculos";
 import type { Catalogo } from "@/lib/ventas/tipos";
 
 import { abrirBase } from "./db";

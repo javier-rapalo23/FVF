@@ -1,6 +1,6 @@
 import type { Prisma, TipoCliente } from "@prisma/client";
 
-import { aDecimal, type ValorDecimal } from "./calculos";
+import { aDecimal, type ValorDecimal } from "@/lib/calculos";
 
 /**
  * Precio unitario de un producto según el cliente de la venta.

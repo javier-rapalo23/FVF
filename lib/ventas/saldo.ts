@@ -1,6 +1,6 @@
 import { Prisma, type TipoMovimientoCuenta } from "@prisma/client";
 
-import { aDecimal, type ValorDecimal } from "./calculos";
+import { aDecimal, type ValorDecimal } from "@/lib/calculos";
 
 /**
  * Saldo de la cuenta corriente de un cliente: lo que debe.

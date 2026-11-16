@@ -7,7 +7,7 @@ import { requerirUsuarioActivo } from "@/lib/acceso";
 import { formatoFechaHora } from "@/lib/fecha";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
-import { textoCantidad, textoMonto } from "@/lib/ventas/calculos";
+import { textoCantidad, textoMonto } from "@/lib/calculos";
 
 import { AnularVenta, BotonImprimir } from "../../_components/acciones-venta";
 import { Comprobante } from "../../_components/comprobante";

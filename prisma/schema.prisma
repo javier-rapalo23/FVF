@@ -45,6 +45,13 @@ enum TipoMovimientoCuenta {
 enum TipoMovimientoProveedor {
   CARGO
   PAGO
+  /// Reversa del cargo de una compra a crédito anulada. No es dinero pagado.
+  ANULACION
+}
+
+enum CondicionPago {
+  CONTADO
+  CREDITO
 }
 
 enum CategoriaGasto {
@@ -97,6 +104,8 @@ model Producto {
   precioMinorista  Decimal     @db.Decimal(10, 2)
   precioMayorista  Decimal     @db.Decimal(10, 2)
   fechaVencimiento DateTime?
+  /// Costo unitario de la última compra registrada. Nulo si nunca se compró.
+  costoActual      Decimal?    @db.Decimal(10, 2)
   activo           Boolean     @default(true)
   creadoEn         DateTime    @default(now())
 
@@ -132,6 +141,8 @@ model Usuario {
   cierresCaja CierreCaja[]
   gastos      Gasto[]
   anulaciones AnulacionVenta[]
+
+  anulacionesCompra AnulacionCompra[]
 }
 
 model Cliente {
@@ -204,18 +215,41 @@ model DetalleVenta {
 }
 
 model Compra {
-  id          Int       @id @default(autoincrement())
-  fecha       DateTime  @default(now())
-  proveedorId Int
-  proveedor   Proveedor @relation(fields: [proveedorId], references: [id])
-  usuarioId   Int
-  usuario     Usuario   @relation(fields: [usuarioId], references: [id])
-  sucursalId  Int
-  sucursal    Sucursal  @relation(fields: [sucursalId], references: [id])
-  total       Decimal   @db.Decimal(10, 2)
+  id                Int           @id @default(autoincrement())
+  /// Día de la factura, guardado al mediodía local. La hora real de registro es `creadoEn`.
+  fecha             DateTime
+  proveedorId       Int
+  proveedor         Proveedor     @relation(fields: [proveedorId], references: [id])
+  usuarioId         Int
+  usuario           Usuario       @relation(fields: [usuarioId], references: [id])
+  sucursalId        Int
+  sucursal          Sucursal      @relation(fields: [sucursalId], references: [id])
+  total             Decimal       @db.Decimal(10, 2)
+  numeroFactura     String?
+  condicionPago     CondicionPago
+  notas             String?
+  /// Generada al abrir el formulario: un doble envío no duplica la compra.
+  claveIdempotencia String        @unique
+  /// Bandera para filtrar rápido; el detalle vive en `AnulacionCompra`.
+  anulada           Boolean       @default(false)
+  creadoEn          DateTime      @default(now())
 
   detalles             DetalleCompra[]
   movimientosProveedor MovimientoProveedor[]
+  anulacion            AnulacionCompra?
+
+  @@index([sucursalId, fecha])
+  @@index([proveedorId])
+}
+
+model AnulacionCompra {
+  id        Int      @id @default(autoincrement())
+  compraId  Int      @unique
+  compra    Compra   @relation(fields: [compraId], references: [id])
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  motivo    String
+  fecha     DateTime @default(now())
 }
 
 model DetalleCompra {
@@ -226,6 +260,7 @@ model DetalleCompra {
   producto      Producto @relation(fields: [productoId], references: [id])
   cantidad      Decimal  @db.Decimal(10, 3)
   costoUnitario Decimal  @db.Decimal(10, 2)
+  subtotal      Decimal  @db.Decimal(10, 2)
 }
 
 model MovimientoCuenta {
@@ -250,6 +285,8 @@ model MovimientoProveedor {
   tipo        TipoMovimientoProveedor
   monto       Decimal                 @db.Decimal(10, 2)
   fecha       DateTime                @default(now())
+
+  @@index([proveedorId])
 }
 
 model CierreCaja {

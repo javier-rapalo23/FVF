@@ -14,7 +14,8 @@ import {
 import { Icono } from "@/components/ui/icono";
 import { Segmentado } from "@/components/ui/segmentado";
 import { UNIDAD_PESO } from "@/lib/config";
-import { sufijoUnidad } from "@/lib/formato";
+import { margenSobrePrecio } from "@/lib/compras/advertencias";
+import { formatoMoneda, sufijoUnidad } from "@/lib/formato";
 import { FORMULARIO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
 
 import { crearCategoriaRapida } from "../categorias/actions";
@@ -47,12 +48,15 @@ export function FormularioProducto({
   categorias,
   proveedores,
   esNuevo,
+  costoActual = null,
 }: {
   accion: (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
   inicial: ProductoFormulario;
   categorias: readonly Opcion[];
   proveedores: readonly Opcion[];
   esNuevo: boolean;
+  /** Último costo de compra. Solo lectura: lo actualiza el módulo de compras. */
+  costoActual?: string | null;
 }) {
   const [estado, alEnviar, pendiente] = useFormulario(accion, FORMULARIO_INICIAL);
   const [unidad, setUnidad] = useState<UnidadVenta>(inicial.unidadVenta);
@@ -186,6 +190,11 @@ export function FormularioProducto({
               ) : undefined
             }
           />
+          {esNuevo ? null : (
+            <div className="sm:col-span-2">
+              <UltimoCosto costo={costoActual} minorista={minorista} sufijo={sufijo} />
+            </div>
+          )}
         </SeccionFormulario>
 
         <SeccionFormulario titulo={esNuevo ? "Vencimiento" : "Vencimiento y estado"}>
@@ -228,6 +237,44 @@ export function FormularioProducto({
         />
       </div>
     </form>
+  );
+}
+
+/** Último costo y margen sobre el precio minorista que se está editando. */
+function UltimoCosto({
+  costo,
+  minorista,
+  sufijo,
+}: {
+  costo: string | null;
+  minorista: string;
+  sufijo: string;
+}) {
+  if (costo === null) {
+    return (
+      <p className="text-[12px] text-tinta-suave">
+        Último costo: <span className="text-tinta-media">sin compras registradas.</span>
+      </p>
+    );
+  }
+
+  const precio = Number(minorista);
+  const margen =
+    Number.isFinite(precio) && precio > 0 ? margenSobrePrecio(costo, minorista) : null;
+
+  return (
+    <p className="cifras text-[12px] text-tinta-suave">
+      Último costo por {sufijo}:{" "}
+      <span className="font-medium text-tinta">{formatoMoneda(costo)}</span>
+      {margen !== null ? (
+        <>
+          {" · "}
+          <span className={margen <= 0 ? "font-medium text-peligro-tinta" : "text-tinta-media"}>
+            margen minorista {margen} %
+          </span>
+        </>
+      ) : null}
+    </p>
   );
 }
 

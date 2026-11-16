@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-import { textoCantidad, textoMonto } from "./calculos";
+import { textoCantidad, textoMonto } from "@/lib/calculos";
 import { saldosDeClientes } from "./saldo";
 import type { Catalogo } from "./tipos";
 

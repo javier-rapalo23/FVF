@@ -11,7 +11,7 @@ import {
   textoCantidad,
   textoMonto,
   validarCantidad,
-} from "./calculos";
+} from "@/lib/calculos";
 import { precioSegunCliente } from "./precios";
 import { saldoDeCliente } from "./saldo";
 import { resolverSucursal } from "./sucursal";
