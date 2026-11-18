@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { clasesBoton } from "@/components/ui/boton";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { EncabezadoPagina, Volver } from "@/components/ui/pagina";
 import { aNumero, fechaISO } from "@/lib/formato";
@@ -32,7 +34,12 @@ export default async function EditarProductoPage({
       <Volver href="/productos">Productos</Volver>
       <EncabezadoPagina
         titulo={producto.nombre}
-        descripcion="El stock y el costo no se editan acá: se mueven con compras y ventas."
+        descripcion="El stock y el costo no se editan acá: se mueven con compras, ventas y ajustes de inventario."
+        acciones={
+          <Link href={`/inventario/${producto.id}`} className={clasesBoton("secundario")}>
+            Historial de stock
+          </Link>
+        }
         meta={producto.activo ? null : <Etiqueta>Inactivo</Etiqueta>}
       />
 
@@ -55,6 +62,7 @@ export default async function EditarProductoPage({
           fechaVencimiento: producto.fechaVencimiento
             ? fechaISO(producto.fechaVencimiento)
             : "",
+          stockMinimo: producto.stockMinimo === null ? "" : String(aNumero(producto.stockMinimo.toString())),
           activo: producto.activo,
         }}
       />

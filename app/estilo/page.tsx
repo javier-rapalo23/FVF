@@ -69,7 +69,7 @@ const TIPOGRAFIA = [
 
 const ICONOS: readonly NombreIcono[] = [
   "caja", "cierres", "productos", "clientes", "proveedores", "compras",
-  "gastos", "reportes", "usuarios", "tienda", "buscar", "mas", "menos",
+  "inventario", "gastos", "reportes", "usuarios", "tienda", "buscar", "mas", "menos",
   "basura", "salir", "check", "alerta", "chevron", "reloj",
 ];
 

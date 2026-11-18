@@ -39,6 +39,7 @@ export const MODULOS: readonly Modulo[] = [
   { href: "/clientes", label: "Clientes", roles: SOLO_ADMIN, grupo: "Gestión", icono: "clientes" },
   { href: "/proveedores", label: "Proveedores", roles: SOLO_ADMIN, grupo: "Gestión", icono: "proveedores" },
   { href: "/compras", label: "Compras", roles: SOLO_ADMIN, grupo: "Gestión", icono: "compras" },
+  { href: "/inventario", label: "Inventario", roles: SOLO_ADMIN, grupo: "Gestión", icono: "inventario" },
   { href: "/gastos", label: "Gastos", roles: SOLO_ADMIN, grupo: "Gestión", icono: "gastos" },
   { href: "/reportes", label: "Reportes", roles: SOLO_ADMIN, grupo: "Administración", icono: "reportes" },
   { href: "/usuarios", label: "Usuarios", roles: SOLO_ADMIN, grupo: "Administración", icono: "usuarios" },

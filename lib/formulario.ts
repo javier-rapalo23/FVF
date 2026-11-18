@@ -1,4 +1,7 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type UnidadVenta } from "@prisma/client";
+
+import { validarCantidad } from "@/lib/calculos";
+import { CANTIDAD_MAXIMA_COMPRA } from "@/lib/config";
 
 /**
  * Lectura y validación de formularios en server actions.
@@ -87,6 +90,25 @@ export function leerFormulario(datos: FormData) {
       else if (numero > MONTO_MAXIMO) fallar(campo, "Monto demasiado alto.");
 
       return (Math.round(numero * 100) / 100) as Retorno;
+    },
+
+    /**
+     * Cantidad de stock en la unidad del producto (por peso hasta 3
+     * decimales, si no entera), mayor que cero. Vacío se guarda como `null`.
+     */
+    cantidadOpcional(campo: string, unidad: UnidadVenta | undefined): string | null {
+      const valor = crudo(campo).replace(",", ".");
+      if (!valor) return null;
+      if (Number(valor) > CANTIDAD_MAXIMA_COMPRA) {
+        fallar(campo, `Máximo ${CANTIDAD_MAXIMA_COMPRA}.`);
+        return null;
+      }
+      const resultado = validarCantidad(valor, unidad, CANTIDAD_MAXIMA_COMPRA);
+      if (!resultado.valida) {
+        fallar(campo, resultado.mensaje);
+        return null;
+      }
+      return resultado.cantidad.toString();
     },
 
     /** Fecha `YYYY-MM-DD` de un `<input type="date">`, guardada a medianoche UTC. */

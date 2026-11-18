@@ -92,6 +92,22 @@ export function validarCantidad(
   return { valida: true, cantidad };
 }
 
+/**
+ * Cantidad contada en un conteo físico: como `validarCantidad`, pero acepta 0
+ * (no quedó nada en la góndola).
+ */
+export function validarCantidadContada(
+  texto: string,
+  unidad?: UnidadVenta,
+  maximo: number = CANTIDAD_MAXIMA_LINEA,
+): ResultadoCantidad {
+  const limpio = texto.trim();
+  if (PATRON_CANTIDAD.test(limpio) && aDecimal(limpio).isZero()) {
+    return { valida: true, cantidad: CERO };
+  }
+  return validarCantidad(limpio, unidad, maximo);
+}
+
 /** Monto positivo con hasta 2 decimales, dentro de `Decimal(10,2)`. */
 const PATRON_MONTO = /^\d{1,8}(\.\d{1,2})?$/;
 

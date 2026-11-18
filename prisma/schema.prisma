@@ -54,6 +54,13 @@ enum CondicionPago {
   CREDITO
 }
 
+enum TipoAjusteStock {
+  /// Conteo físico: se fija la cantidad real y se guarda la diferencia.
+  CONTEO
+  /// Producto que se pierde: dañado, vencido, robado.
+  MERMA
+}
+
 enum CategoriaGasto {
   OPERATIVO
   MERCADERIA
@@ -66,12 +73,13 @@ model Sucursal {
   direccion String?
   creadoEn  DateTime @default(now())
 
-  usuarios    Usuario[]
-  stock       Stock[]
-  ventas      Venta[]
-  compras     Compra[]
-  cierresCaja CierreCaja[]
-  gastos      Gasto[]
+  usuarios     Usuario[]
+  stock        Stock[]
+  ventas       Venta[]
+  compras      Compra[]
+  cierresCaja  CierreCaja[]
+  gastos       Gasto[]
+  ajustesStock AjusteStock[]
 }
 
 model Categoria {
@@ -106,12 +114,15 @@ model Producto {
   fechaVencimiento DateTime?
   /// Costo unitario de la última compra registrada. Nulo si nunca se compró.
   costoActual      Decimal?    @db.Decimal(10, 2)
+  /// Debajo de esta cantidad el producto aparece como "stock bajo". Nulo = sin alerta.
+  stockMinimo      Decimal?    @db.Decimal(10, 3)
   activo           Boolean     @default(true)
   creadoEn         DateTime    @default(now())
 
   stock          Stock[]
   detallesVenta  DetalleVenta[]
   detallesCompra DetalleCompra[]
+  ajustesStock   AjusteStock[]
 }
 
 model Stock {
@@ -143,6 +154,7 @@ model Usuario {
   anulaciones AnulacionVenta[]
 
   anulacionesCompra AnulacionCompra[]
+  ajustesStock      AjusteStock[]
 }
 
 model Cliente {
@@ -212,6 +224,9 @@ model DetalleVenta {
   cantidad       Decimal  @db.Decimal(10, 3)
   precioUnitario Decimal  @db.Decimal(10, 2)
   subtotal       Decimal  @db.Decimal(10, 2)
+
+  /// Historial de movimientos por producto (kardex).
+  @@index([productoId])
 }
 
 model Compra {
@@ -261,6 +276,29 @@ model DetalleCompra {
   cantidad      Decimal  @db.Decimal(10, 3)
   costoUnitario Decimal  @db.Decimal(10, 2)
   subtotal      Decimal  @db.Decimal(10, 2)
+
+  /// Historial de movimientos por producto (kardex).
+  @@index([productoId])
+}
+
+/// Conteo físico o merma. Nunca se edita ni se borra: un error se corrige con otro ajuste.
+model AjusteStock {
+  id              Int             @id @default(autoincrement())
+  productoId      Int
+  producto        Producto        @relation(fields: [productoId], references: [id])
+  sucursalId      Int
+  sucursal        Sucursal        @relation(fields: [sucursalId], references: [id])
+  usuarioId       Int
+  usuario         Usuario         @relation(fields: [usuarioId], references: [id])
+  tipo            TipoAjusteStock
+  /// Diferencia aplicada al stock: positiva suma, negativa resta.
+  cantidad        Decimal         @db.Decimal(10, 3)
+  stockAnterior   Decimal         @db.Decimal(10, 3)
+  stockResultante Decimal         @db.Decimal(10, 3)
+  motivo          String
+  fecha           DateTime        @default(now())
+
+  @@index([productoId, sucursalId, fecha])
 }
 
 model MovimientoCuenta {
