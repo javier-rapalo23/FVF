@@ -157,6 +157,18 @@ async function main() {
   }
 
   /*
+   * Stock mínimo para probar las alertas de inventario: el aguacate (3 un)
+   * queda debajo del suyo. Solo si el producto todavía no tiene uno.
+   */
+  const minimos: Record<number, string> = { 1001: "20.000", 1003: "24.000", 1004: "10.000" };
+  for (const [idInterno, stockMinimo] of Object.entries(minimos)) {
+    await prisma.producto.updateMany({
+      where: { idInterno: Number(idInterno), stockMinimo: null },
+      data: { stockMinimo },
+    });
+  }
+
+  /*
    * Clientes para probar precios y fiado: mayorista con límite, mayorista sin
    * tope y minorista sin fiado. `Cliente` no tiene otro campo único que el
    * id, así que se buscan por nombre para no duplicarlos ni pisar clientes

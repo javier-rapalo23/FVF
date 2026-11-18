@@ -24,6 +24,7 @@ export async function guardarProducto(
   await exigirAdministrador();
 
   const f = leerFormulario(datos);
+  const unidadVenta = f.opcion("unidadVenta", UNIDADES);
   const producto = {
     idInterno: f.entero("idInterno"),
     // Los lectores de código envían solo dígitos (EAN/UPC), pero hay códigos
@@ -36,10 +37,15 @@ export async function guardarProducto(
     nombre: f.texto("nombre"),
     categoriaId: f.id("categoriaId", "Elegí una categoría."),
     proveedorId: f.idOpcional("proveedorId"),
-    unidadVenta: f.opcion("unidadVenta", UNIDADES),
+    unidadVenta,
     precioMinorista: f.monto("precioMinorista"),
     precioMayorista: f.monto("precioMayorista"),
     fechaVencimiento: f.fechaOpcional("fechaVencimiento"),
+    // Sigue la regla de cantidades de la unidad elegida (entera salvo por peso).
+    stockMinimo: f.cantidadOpcional(
+      "stockMinimo",
+      UNIDADES.includes(unidadVenta) ? unidadVenta : undefined,
+    ),
     // Un producto nuevo siempre nace activo; el interruptor solo existe al editar.
     activo: id === null ? true : f.booleano("activo"),
   };
@@ -86,5 +92,6 @@ export async function guardarProducto(
 
   revalidatePath("/productos");
   revalidatePath("/caja");
+  revalidatePath("/inventario", "layout");
   redirect(`/productos?guardado=${encodeURIComponent(producto.nombre)}`);
 }

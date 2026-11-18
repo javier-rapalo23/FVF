@@ -40,6 +40,7 @@ export default async function NuevoProductoPage() {
           precioMinorista: "",
           precioMayorista: "",
           fechaVencimiento: "",
+          stockMinimo: "",
           activo: true,
         }}
       />

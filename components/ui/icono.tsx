@@ -52,6 +52,14 @@ const GLIFOS = {
       <path d="M4 16v2.5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V16" />
     </>
   ),
+  inventario: (
+    <>
+      <rect x="5" y="4.5" width="14" height="16" rx="1.5" />
+      <path d="M9.5 3.5h5v2.5h-5z" />
+      <path d="m8.5 12 1.8 1.8 3.2-3.3" />
+      <path d="M8.5 17h7" />
+    </>
+  ),
   gastos: (
     <>
       <path d="M6 3.5h12v17l-2.4-1.6-2.4 1.6-2.4-1.6-2.4 1.6L6 20.5z" />

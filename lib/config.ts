@@ -23,3 +23,12 @@ export const DIAS_ATRAS_COMPRA = 60;
 
 /** Variación del costo respecto del último que dispara la advertencia. */
 export const VARIACION_COSTO_AVISO = 0.3;
+
+/** A partir de cuántos días se avisa que un producto está por vencer. */
+export const DIAS_AVISO_VENCIMIENTO = 7;
+
+/**
+ * Ventana del aviso de conteo: ventas sin conexión sincronizadas en estas
+ * últimas horas, cobradas antes del último conteo del producto.
+ */
+export const HORAS_AVISO_VENTA_OFFLINE = 24;

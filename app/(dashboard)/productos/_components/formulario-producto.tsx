@@ -33,6 +33,8 @@ export type ProductoFormulario = {
   precioMayorista: string;
   /** `YYYY-MM-DD` o vacío. */
   fechaVencimiento: string;
+  /** Vacío = sin alerta de stock bajo. */
+  stockMinimo: string;
   activo: boolean;
 };
 
@@ -197,7 +199,33 @@ export function FormularioProducto({
           )}
         </SeccionFormulario>
 
-        <SeccionFormulario titulo={esNuevo ? "Vencimiento" : "Vencimiento y estado"}>
+        <SeccionFormulario
+          titulo={esNuevo ? "Stock y vencimiento" : "Stock, vencimiento y estado"}
+          descripcion="El stock no se edita acá: entra con compras y se corrige con un conteo desde Inventario."
+        >
+          <GrupoCampo
+            etiqueta="Stock mínimo"
+            htmlFor="stockMinimo"
+            error={errores.stockMinimo}
+            ayuda="Opcional. Debajo de esta cantidad aparece como stock bajo en Inventario."
+          >
+            <div className="relative">
+              <input
+                id="stockMinimo"
+                name="stockMinimo"
+                type="number"
+                inputMode={unidad === "PESO" ? "decimal" : "numeric"}
+                min={0}
+                step={unidad === "PESO" ? 0.001 : 1}
+                defaultValue={inicial.stockMinimo}
+                aria-invalid={errores.stockMinimo ? true : undefined}
+                className={`cifras h-10 pr-12 ${CLASES_INPUT}`}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-tinta-suave">
+                {sufijo}
+              </span>
+            </div>
+          </GrupoCampo>
           <Campo
             id="fechaVencimiento"
             name="fechaVencimiento"

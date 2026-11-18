@@ -13,6 +13,7 @@ import {
   Pestanas,
 } from "@/components/ui/pagina";
 import { Celda, Fila, Tabla } from "@/components/ui/tabla";
+import { DIAS_AVISO_VENCIMIENTO } from "@/lib/config";
 import {
   aNumero,
   cantidad,
@@ -34,9 +35,6 @@ import { PESTANAS_PRODUCTOS } from "./_components/pestanas";
 export const metadata: Metadata = {
   title: "Productos | Inversiones Ferrera",
 };
-
-/** A partir de cuántos días se avisa que un producto está por vencer. */
-const DIAS_AVISO_VENCIMIENTO = 7;
 
 export default async function ProductosPage({
   searchParams,
