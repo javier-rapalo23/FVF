@@ -1,41 +1,10 @@
 import type { UsuarioActivo } from "@/lib/acceso";
 import { prisma } from "@/lib/prisma";
+import type { SucursalBasica } from "@/lib/sucursal";
 
 import { ErrorInventario } from "./tipos";
 
-type Sucursal = { id: number; nombre: string };
-
-/**
- * Sucursal que muestra la pantalla de inventario.
- *
- * - Administrador con sucursal asignada: la suya; el parámetro se ignora.
- * - Sin sucursal: la del parámetro `?sucursal=`, o la primera.
- *
- * `opciones` trae la lista para el selector solo cuando hay más de una para
- * elegir. `null` si no hay ninguna sucursal cargada.
- */
-export async function sucursalDePantalla(
-  usuario: UsuarioActivo,
-  parametro: string | undefined,
-): Promise<{ sucursal: Sucursal; opciones: Sucursal[] } | null> {
-  if (usuario.sucursalId !== null) {
-    const propia = await prisma.sucursal.findUnique({
-      where: { id: usuario.sucursalId },
-      select: { id: true, nombre: true },
-    });
-    if (propia) return { sucursal: propia, opciones: [] };
-  }
-
-  const sucursales = await prisma.sucursal.findMany({
-    select: { id: true, nombre: true },
-    orderBy: { id: "asc" },
-  });
-  if (sucursales.length === 0) return null;
-
-  const pedida = /^\d{1,9}$/.test(parametro ?? "") ? Number(parametro) : null;
-  const sucursal = sucursales.find((s) => s.id === pedida) ?? sucursales[0]!;
-  return { sucursal, opciones: sucursales.length > 1 ? sucursales : [] };
-}
+type Sucursal = SucursalBasica;
 
 /**
  * Sucursal de un ajuste. Mismo criterio que la pantalla, pero sin elegir por

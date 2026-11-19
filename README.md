@@ -2,7 +2,7 @@
 
 Sistema de punto de venta y gestión para verdulería / minimarket: venta minorista y mayorista, cuentas corrientes (fiado) con clientes, cuentas por pagar con proveedores y un modelo de datos preparado para múltiples sucursales.
 
-> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. Compras (Etapa 1): registro de compras de contado o a crédito que suben el stock, último costo por producto, saldo por pagar a proveedores y anulación. Inventario (Etapa 2): stock valorizado por sucursal con alertas de stock bajo, negativo y vencido, conteo físico (uno a uno o en lote), merma con motivo, stock mínimo por producto e historial de movimientos (kardex). El resto de los módulos operativos (cuentas, cierres, reportes) todavía son pantallas placeholder.
+> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. Compras (Etapa 1): registro de compras de contado o a crédito que suben el stock, último costo por producto, saldo por pagar a proveedores y anulación. Inventario (Etapa 2): stock valorizado por sucursal con alertas de stock bajo, negativo y vencido, conteo físico (uno a uno o en lote), merma con motivo, stock mínimo por producto e historial de movimientos (kardex). Cierre de caja (Etapa 1): arqueo del efectivo por sucursal con conteo de billetes y monedas, conteo a ciegas para el empleado, fondo para el turno siguiente, bloqueo con ventas sin sincronizar y revisión del administrador. Cuentas (abonos, pagos a proveedores), gastos y reportes todavía no están.
 
 ---
 
@@ -125,7 +125,7 @@ app/
   (dashboard)/
     _components/           nav lateral y placeholder de módulos
     caja/                  ventas (ambos roles)
-    cierres/               cierres de caja (ambos roles)
+    cierres/               cierres de caja (ambos roles; nuevo/ = cerrar caja, [id]/ con revisión)
     productos/             solo ADMINISTRADOR (incluye categorias/)
       nuevo/, [id]/        alta y edición; igual en clientes, proveedores y usuarios
       actions.ts           server actions del módulo
@@ -146,6 +146,8 @@ lib/
   calculos.ts              aritmética de montos y cantidades (ventas y compras)
   compras/                 registro, anulación y saldo de proveedores
   inventario/              ajustes de stock, listado valorizado, kardex y avisos de ventas offline
+  cierres/                 cálculo, registro y revisión de cierres de caja
+  sucursal.ts              sucursal que muestra una pantalla de gestión
   ventas/                  registro, anulación, catálogo y saldo de clientes
   auth.ts                  Auth.js con el provider de credenciales (Node)
   auth.config.ts           configuración compartida, edge-safe (middleware)
@@ -175,6 +177,7 @@ El schema completo está en [prisma/schema.prisma](prisma/schema.prisma). Entida
 - **Cuentas**: `MovimientoCuenta` (fiado de clientes) y `MovimientoProveedor` (cuentas por pagar: `CARGO` por compra a crédito, `PAGO`, y `ANULACION` al anular una compra a crédito).
 - **Costo**: `Producto.costoActual` es el costo unitario de la última compra (ISV incluido); `DetalleCompra` guarda la foto de cada compra.
 - **Inventario**: `AjusteStock` registra cada conteo (`CONTEO`, fija la cantidad real) y cada merma (`MERMA`, resta lo perdido) con el stock anterior y el resultante. `Producto.stockMinimo` dispara la alerta de stock bajo. No hay tabla de movimientos: el kardex se arma uniendo ventas, anulaciones, compras y ajustes, y su saldo se calcula hacia atrás desde la fila de `Stock`.
+- **Cierre de caja**: `CierreCaja` guarda el arqueo (fondo inicial, ventas por medio de pago, devoluciones, esperado, contado, diferencia, fondo siguiente y el detalle de billetes y monedas). Cada cierre se queda con las ventas y anulaciones de la sucursal que todavía no tenían cierre (`Venta.cierreCajaId`, `AnulacionVenta.cierreCajaId`), así ninguna se pierde ni se cuenta dos veces aunque se registre en el mismo instante. Los cierres de una sucursal forman una cadena (`cierreAnteriorId`, único).
 
 Los importes usan `Decimal(10,2)` y las cantidades `Decimal(10,3)`, para poder vender por peso. Los modelos y campos están en español, igual que el resto de la documentación del proyecto (diagrama ER, DBML).
 
@@ -205,4 +208,4 @@ El service worker solo se registra en producción. Para probarlo en local: `npm 
 
 ## Próximos pasos
 
-El módulo de [Especificacion_Compras_Stock.md](Especificacion_Compras_Stock.md) está completo (compras e inventario). Siguen: cierre de caja (que deberá bloquearse mientras haya ventas sin sincronizar), abonos a cuentas de clientes y pagos a proveedores, y reportes.
+El módulo de [Especificacion_Compras_Stock.md](Especificacion_Compras_Stock.md) está completo (compras e inventario). Sigue la Etapa 2 de [Especificacion_Cierre_Cuentas.md](Especificacion_Cierre_Cuentas.md): abonos de clientes, pagos a proveedores y gastos, integrados al cierre. Después, reportes.

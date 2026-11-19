@@ -5,8 +5,10 @@ import { redirect } from "next/navigation";
 import { BarraFiltros } from "@/components/ui/filtros";
 import { Icono } from "@/components/ui/icono";
 import { EncabezadoPagina, EstadoVacio, Tarjeta } from "@/components/ui/pagina";
+import { SelectorSucursal } from "@/components/ui/selector-sucursal";
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { textoMonto } from "@/lib/calculos";
+import { formatoMoneda } from "@/lib/formato";
 import {
   cumpleFiltro,
   esFiltroInventario,
@@ -15,12 +17,10 @@ import {
   valorTotal,
   type FiltroInventario,
 } from "@/lib/inventario/listado";
-import { sucursalDePantalla } from "@/lib/inventario/sucursal";
-import { formatoMoneda } from "@/lib/formato";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
+import { sucursalDePantalla } from "@/lib/sucursal";
 import { normalizarTexto } from "@/lib/texto";
 
-import { SelectorSucursal } from "./_components/selector-sucursal";
 import { TablaInventario } from "./_components/tabla-inventario";
 
 export const metadata: Metadata = {

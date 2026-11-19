@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-import { CLASES_SELECT_SUELTO } from "@/components/ui/campo";
+import { CLASES_SELECT_SUELTO } from "./campo";
 
 /** Solo para el administrador sin sucursal asignada y con más de una cargada. */
 export function SelectorSucursal({

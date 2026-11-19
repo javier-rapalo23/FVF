@@ -32,3 +32,22 @@ export const DIAS_AVISO_VENCIMIENTO = 7;
  * últimas horas, cobradas antes del último conteo del producto.
  */
 export const HORAS_AVISO_VENTA_OFFLINE = 24;
+
+/** Diferencia de un cierre de caja (en lempiras) a partir de la cual la nota es obligatoria. */
+export const DIFERENCIA_CIERRE_NOTA = 20;
+
+/** Billetes y monedas de Honduras para el conteo de caja, de mayor a menor. */
+export const DENOMINACIONES = [
+  "500",
+  "200",
+  "100",
+  "50",
+  "20",
+  "10",
+  "5",
+  "2",
+  "1",
+  "0.5",
+  "0.2",
+  "0.1",
+] as const;
