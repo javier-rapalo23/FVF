@@ -115,6 +115,15 @@ export type ResultadoMonto =
   | { valido: true; monto: Prisma.Decimal }
   | { valido: false; mensaje: string };
 
+/** Monto mayor o igual a cero, hasta 2 decimales (efectivo contado, fondo). */
+export function validarMontoNoNegativo(texto: string): ResultadoMonto {
+  const limpio = texto.trim();
+  if (!PATRON_MONTO.test(limpio)) {
+    return { valido: false, mensaje: "Ingresá un monto válido, con hasta 2 decimales." };
+  }
+  return { valido: true, monto: aDecimal(limpio) };
+}
+
 /** Costo o precio unitario: mayor que cero, hasta 2 decimales. */
 export function validarMontoPositivo(texto: string): ResultadoMonto {
   const limpio = texto.trim();

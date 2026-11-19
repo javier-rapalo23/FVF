@@ -19,7 +19,7 @@ import {
 } from "@/lib/fecha";
 import { cantidad, fecha, formatoMoneda } from "@/lib/formato";
 import { kardexProducto, type TipoMovimientoKardex } from "@/lib/inventario/kardex";
-import { sucursalDePantalla } from "@/lib/inventario/sucursal";
+import { sucursalDePantalla } from "@/lib/sucursal";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 
