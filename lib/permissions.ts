@@ -23,6 +23,11 @@ export type Modulo = {
    * nada del bundle de componentes al Edge Runtime del middleware.
    */
   icono: NombreIcono;
+  /**
+   * Sub-ruta con permisos propios dentro de otro módulo (ej. los conceptos de
+   * gasto, solo para el administrador). No aparece en la navegación.
+   */
+  oculto?: boolean;
 };
 
 /** Orden en que se muestran los grupos en la navegación. */
@@ -40,7 +45,16 @@ export const MODULOS: readonly Modulo[] = [
   { href: "/proveedores", label: "Proveedores", roles: SOLO_ADMIN, grupo: "Gestión", icono: "proveedores" },
   { href: "/compras", label: "Compras", roles: SOLO_ADMIN, grupo: "Gestión", icono: "compras" },
   { href: "/inventario", label: "Inventario", roles: SOLO_ADMIN, grupo: "Gestión", icono: "inventario" },
-  { href: "/gastos", label: "Gastos", roles: SOLO_ADMIN, grupo: "Gestión", icono: "gastos" },
+  // El empleado registra los gastos pagados con el efectivo de su caja.
+  { href: "/gastos", label: "Gastos", roles: TODOS, grupo: "Gestión", icono: "gastos" },
+  {
+    href: "/gastos/conceptos",
+    label: "Conceptos de gasto",
+    roles: SOLO_ADMIN,
+    grupo: "Gestión",
+    icono: "gastos",
+    oculto: true,
+  },
   { href: "/reportes", label: "Reportes", roles: SOLO_ADMIN, grupo: "Administración", icono: "reportes" },
   { href: "/usuarios", label: "Usuarios", roles: SOLO_ADMIN, grupo: "Administración", icono: "usuarios" },
 ];
@@ -66,14 +80,18 @@ export function esRutaPublica(pathname: string): boolean {
   );
 }
 
-/** Módulo al que pertenece una ruta, o null si la ruta no es de un módulo. */
+/**
+ * Módulo al que pertenece una ruta, o null si la ruta no es de un módulo.
+ * Gana la coincidencia más larga: `/gastos/conceptos` tiene permisos propios
+ * dentro de `/gastos`.
+ */
 export function moduloDeRuta(pathname: string): Modulo | null {
-  return (
-    MODULOS.find(
-      (modulo) =>
-        pathname === modulo.href || pathname.startsWith(`${modulo.href}/`),
-    ) ?? null
-  );
+  let elegido: Modulo | null = null;
+  for (const modulo of MODULOS) {
+    const coincide = pathname === modulo.href || pathname.startsWith(`${modulo.href}/`);
+    if (coincide && (!elegido || modulo.href.length > elegido.href.length)) elegido = modulo;
+  }
+  return elegido;
 }
 
 export function puedeAccederRuta(rol: Rol, pathname: string): boolean {
@@ -84,7 +102,7 @@ export function puedeAccederRuta(rol: Rol, pathname: string): boolean {
 
 /** Modulos visibles en la navegación para un rol. */
 export function modulosVisibles(rol: Rol): readonly Modulo[] {
-  return MODULOS.filter((modulo) => modulo.roles.includes(rol));
+  return MODULOS.filter((modulo) => !modulo.oculto && modulo.roles.includes(rol));
 }
 
 /** Landing por rol: a donde mandar después del login o ante un acceso denegado. */

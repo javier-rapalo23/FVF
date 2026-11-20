@@ -1,4 +1,12 @@
-import { CondicionPago, PrismaClient, Rol, TipoCliente, UnidadVenta } from "@prisma/client";
+import {
+  CategoriaGasto,
+  CondicionPago,
+  MedioPagoGasto,
+  PrismaClient,
+  Rol,
+  TipoCliente,
+  UnidadVenta,
+} from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -323,6 +331,71 @@ async function main() {
           data: { costoActual: d.costoUnitario },
         });
       }
+    });
+  }
+
+  // ---------------------------------------------------------------- Gastos
+  // Los conceptos los carga la migración `gastos_etapa1`; el upsert solo cubre
+  // una base armada sin migraciones.
+  const concepto = async (nombre: string, categoria: CategoriaGasto) =>
+    (
+      await prisma.conceptoGasto.upsert({
+        where: { nombre },
+        update: {},
+        create: { nombre, categoria },
+        select: { id: true },
+      })
+    ).id;
+
+  const gastos = [
+    {
+      // Gasto de caja de hoy: resta en el próximo cierre de la sucursal.
+      claveIdempotencia: "00000000-0000-4000-8000-000000000101",
+      conceptoId: await concepto("Hielo", CategoriaGasto.MERCADERIA),
+      monto: "150.00",
+      medioPago: MedioPagoGasto.EFECTIVO_CAJA,
+      descripcion: "Hielo para la verdura de hoja",
+      sucursalId: sucursal.id,
+      fecha: mediodiaHace(0),
+      anulacion: null,
+    },
+    {
+      // Gasto general, sin sucursal, pagado por transferencia.
+      claveIdempotencia: "00000000-0000-4000-8000-000000000102",
+      conceptoId: await concepto("Energía eléctrica", CategoriaGasto.OPERATIVO),
+      monto: "1850.40",
+      medioPago: MedioPagoGasto.TRANSFERENCIA,
+      descripcion: "Recibo ENEE del mes",
+      sucursalId: null,
+      fecha: mediodiaHace(5),
+      anulacion: null,
+    },
+    {
+      claveIdempotencia: "00000000-0000-4000-8000-000000000103",
+      conceptoId: await concepto("Fletes y transporte", CategoriaGasto.MERCADERIA),
+      monto: "400.00",
+      medioPago: MedioPagoGasto.EFECTIVO_FUERA_CAJA,
+      descripcion: "Flete de Comayagua",
+      sucursalId: sucursal.id,
+      fecha: mediodiaHace(2),
+      anulacion: "Registrado dos veces",
+    },
+  ];
+
+  for (const { anulacion, ...gasto } of gastos) {
+    const existe = await prisma.gasto.findUnique({
+      where: { claveIdempotencia: gasto.claveIdempotencia },
+      select: { id: true },
+    });
+    if (existe) continue;
+
+    await prisma.gasto.create({
+      data: {
+        ...gasto,
+        usuarioId: admin.id,
+        anulado: anulacion !== null,
+        ...(anulacion ? { anulacion: { create: { usuarioId: admin.id, motivo: anulacion } } } : {}),
+      },
     });
   }
 

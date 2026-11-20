@@ -54,6 +54,17 @@ export default async function DetalleCierrePage({
         orderBy: { id: "asc" },
         take: VENTAS_LISTADAS,
       },
+      gastos: {
+        select: {
+          id: true,
+          monto: true,
+          anulado: true,
+          descripcion: true,
+          creadoEn: true,
+          concepto: { select: { nombre: true } },
+        },
+        orderBy: { id: "asc" },
+      },
       _count: { select: { ventas: true } },
     },
   });
@@ -120,6 +131,9 @@ export default async function DetalleCierrePage({
                   valor={cierre.devolucionesEfectivo}
                   signo="−"
                 />
+              ) : null}
+              {cierre.gastosCaja.gt(0) ? (
+                <Monto etiqueta="Gastos de caja" valor={cierre.gastosCaja} signo="−" />
               ) : null}
               <Separador />
               <Monto etiqueta="Esperado" valor={cierre.totalSistema} fuerte />
@@ -219,6 +233,55 @@ export default async function DetalleCierrePage({
               </div>
             )}
           </details>
+
+          {cierre.gastos.length > 0 ? (
+            <details className="rounded-xl border border-borde bg-superficie">
+              <summary className="cursor-pointer px-5 py-3 text-[13px] font-medium text-tinta">
+                Gastos de caja incluidos ({cierre.gastos.length})
+              </summary>
+              <div className="border-t border-borde">
+                <Tabla
+                  columnas={[
+                    { label: "N°" },
+                    { label: "Hora" },
+                    { label: "Concepto" },
+                    { label: "Descripción", ocultaMovil: true },
+                    { label: "Monto", derecha: true },
+                  ]}
+                >
+                  {cierre.gastos.map((g) => (
+                    <Fila key={g.id} atenuada={g.anulado}>
+                      <Celda className="cifras font-mono">
+                        <Link href={`/gastos/${g.id}`} className="underline-offset-2 hover:underline">
+                          {g.id}
+                        </Link>
+                      </Celda>
+                      <Celda className="cifras whitespace-nowrap text-tinta-media">
+                        {formatoHora(g.creadoEn)}
+                      </Celda>
+                      <Celda>
+                        {g.concepto.nombre}
+                        {g.anulado ? (
+                          <Etiqueta tono="peligro" className="ml-1.5">
+                            Anulado
+                          </Etiqueta>
+                        ) : null}
+                      </Celda>
+                      <Celda ocultaMovil className="text-tinta-media">
+                        {g.descripcion}
+                      </Celda>
+                      <Celda derecha className={`cifras ${g.anulado ? "line-through" : ""}`}>
+                        {formatoMoneda(g.monto)}
+                      </Celda>
+                    </Fila>
+                  ))}
+                </Tabla>
+                <p className="px-5 py-3 text-[12px] text-tinta-suave">
+                  Los anulados antes del cierre no restan. Uno anulado después no cambia este cierre.
+                </p>
+              </div>
+            </details>
+          ) : null}
         </div>
 
         <Tarjeta className="px-5 py-4">

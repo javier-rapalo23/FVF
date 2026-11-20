@@ -53,12 +53,14 @@ type PorMetodo = { metodoPago: MetodoPago; _sum: { total: Prisma.Decimal | null 
 function armarTotales(
   porMetodo: PorMetodo,
   devoluciones: Prisma.Decimal | null,
+  gastos: Prisma.Decimal | null,
   fondoInicial: Prisma.Decimal,
 ): TotalesCierre {
   const metodo = (m: MetodoPago) =>
     porMetodo.find((p) => p.metodoPago === m)?._sum.total ?? CERO;
   const efectivo = metodo("EFECTIVO");
   const devuelto = devoluciones ?? CERO;
+  const gastado = gastos ?? CERO;
 
   return {
     fondoInicial: textoMonto(fondoInicial),
@@ -68,7 +70,21 @@ function armarTotales(
     ventasTarjeta: textoMonto(metodo("TARJETA")),
     ventasFiado: textoMonto(metodo("FIADO")),
     cantidadVentas: porMetodo.reduce((suma, p) => suma + p._count._all, 0),
-    esperado: textoMonto(fondoInicial.plus(efectivo).minus(devuelto)),
+    gastosCaja: textoMonto(gastado),
+    esperado: textoMonto(fondoInicial.plus(efectivo).minus(devuelto).minus(gastado)),
+  };
+}
+
+/**
+ * Gastos de caja que todavía no entraron en un cierre. Mismo piso que las
+ * ventas: lo registrado antes del primer cierre de la sucursal no entra.
+ */
+export function filtroGastosPendientes(sucursalId: number, inicioCadena: Date): Prisma.GastoWhereInput {
+  return {
+    sucursalId,
+    medioPago: "EFECTIVO_CAJA",
+    cierreCajaId: null,
+    creadoEn: { gte: inicioCadena },
   };
 }
 
@@ -79,7 +95,7 @@ export async function totalesPendientes(
   inicioCadena: Date,
   fondoInicial: Prisma.Decimal,
 ): Promise<TotalesCierre> {
-  const [porMetodo, devoluciones] = await Promise.all([
+  const [porMetodo, devoluciones, gastos] = await Promise.all([
     db.venta.groupBy({
       by: ["metodoPago"],
       where: { sucursalId, cierreCajaId: null, creadoEn: { gte: inicioCadena }, anulada: false },
@@ -96,8 +112,12 @@ export async function totalesPendientes(
       },
       _sum: { total: true },
     }),
+    db.gasto.aggregate({
+      where: { ...filtroGastosPendientes(sucursalId, inicioCadena), anulado: false },
+      _sum: { monto: true },
+    }),
   ]);
-  return armarTotales(porMetodo, devoluciones._sum.total, fondoInicial);
+  return armarTotales(porMetodo, devoluciones._sum.total, gastos._sum.monto, fondoInicial);
 }
 
 /** Importes de un cierre a partir de lo que ya tiene asignado. */
@@ -106,7 +126,7 @@ export async function totalesDeCierre(
   cierreId: number,
   fondoInicial: Prisma.Decimal,
 ): Promise<TotalesCierre> {
-  const [porMetodo, devoluciones] = await Promise.all([
+  const [porMetodo, devoluciones, gastos] = await Promise.all([
     db.venta.groupBy({
       by: ["metodoPago"],
       where: { cierreCajaId: cierreId, anulada: false },
@@ -123,6 +143,11 @@ export async function totalesDeCierre(
       },
       _sum: { total: true },
     }),
+    // Se asignan también los anulados antes del cierre, pero no restan.
+    db.gasto.aggregate({
+      where: { cierreCajaId: cierreId, anulado: false },
+      _sum: { monto: true },
+    }),
   ]);
-  return armarTotales(porMetodo, devoluciones._sum.total, fondoInicial);
+  return armarTotales(porMetodo, devoluciones._sum.total, gastos._sum.monto, fondoInicial);
 }

@@ -194,6 +194,8 @@ No empezar hasta que se confirme la Etapa 1.
 
 ### 6.3 Gastos
 
+> Detallado en [Especificacion_Gastos.md](Especificacion_Gastos.md), que manda sobre este resumen.
+
 - `/gastos`: categoría, monto, descripción, sucursal y si se pagó con efectivo de la caja. El empleado puede registrar gastos de caja de su sucursal; el administrador, todos.
 - Anulación con motivo (solo administrador).
 

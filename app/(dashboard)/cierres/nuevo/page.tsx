@@ -5,7 +5,7 @@ import { EncabezadoPagina, EstadoVacio, Volver } from "@/components/ui/pagina";
 import { SelectorSucursal } from "@/components/ui/selector-sucursal";
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { aDecimal, textoMonto } from "@/lib/calculos";
-import { estadoCaja, totalesPendientes } from "@/lib/cierres/calcular";
+import { estadoCaja, filtroGastosPendientes, totalesPendientes } from "@/lib/cierres/calcular";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 import { sucursalDePantalla } from "@/lib/sucursal";
@@ -58,7 +58,12 @@ export default async function CerrarCajaPage({
 
   const estado = await estadoCaja(prisma, sucursal.id);
   const fondo = estado.cierreAnterior?.fondoSiguiente ?? null;
-  const totales = await totalesPendientes(prisma, sucursal.id, estado.inicioCadena, fondo ?? aDecimal(0));
+  const [totales, cantidadGastos] = await Promise.all([
+    totalesPendientes(prisma, sucursal.id, estado.inicioCadena, fondo ?? aDecimal(0)),
+    prisma.gasto.count({
+      where: { ...filtroGastosPendientes(sucursal.id, estado.inicioCadena), anulado: false },
+    }),
+  ]);
 
   // El empleado cuenta a ciegas: el efectivo esperado no viaja a su pantalla
   // hasta que termina de contar (lo pide la vista previa).
@@ -73,6 +78,7 @@ export default async function CerrarCajaPage({
           devolucionesEfectivo: totales.devolucionesEfectivo,
         }
       : null,
+    gastosCaja: { total: totales.gastosCaja, cantidad: cantidadGastos },
   };
 
   return (

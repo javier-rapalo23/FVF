@@ -2,7 +2,7 @@
 
 Sistema de punto de venta y gestión para verdulería / minimarket: venta minorista y mayorista, cuentas corrientes (fiado) con clientes, cuentas por pagar con proveedores y un modelo de datos preparado para múltiples sucursales.
 
-> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. Compras (Etapa 1): registro de compras de contado o a crédito que suben el stock, último costo por producto, saldo por pagar a proveedores y anulación. Inventario (Etapa 2): stock valorizado por sucursal con alertas de stock bajo, negativo y vencido, conteo físico (uno a uno o en lote), merma con motivo, stock mínimo por producto e historial de movimientos (kardex). Cierre de caja (Etapa 1): arqueo del efectivo por sucursal con conteo de billetes y monedas, conteo a ciegas para el empleado, fondo para el turno siguiente, bloqueo con ventas sin sincronizar y revisión del administrador. Cuentas (abonos, pagos a proveedores), gastos y reportes todavía no están.
+> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. Compras (Etapa 1): registro de compras de contado o a crédito que suben el stock, último costo por producto, saldo por pagar a proveedores y anulación. Inventario (Etapa 2): stock valorizado por sucursal con alertas de stock bajo, negativo y vencido, conteo físico (uno a uno o en lote), merma con motivo, stock mínimo por producto e historial de movimientos (kardex). Cierre de caja (Etapa 1): arqueo del efectivo por sucursal con conteo de billetes y monedas, conteo a ciegas para el empleado, fondo para el turno siguiente, bloqueo con ventas sin sincronizar y revisión del administrador. Gastos (Etapa 1): registro por concepto y medio de pago, el empleado registra los pagados con el efectivo de su caja, corrección y anulación del administrador, y los gastos de caja se descuentan del esperado en el cierre. Cuentas (abonos, pagos a proveedores) y reportes todavía no están.
 
 ---
 
@@ -133,7 +133,8 @@ app/
     proveedores/           solo ADMINISTRADOR
     compras/               solo ADMINISTRADOR (listado, nueva/, [id]/ con anulación)
     inventario/            solo ADMINISTRADOR (stock, conteo, merma; [productoId]/ = kardex)
-    gastos/                solo ADMINISTRADOR
+    gastos/                ambos roles: el empleado registra gastos de caja de su sucursal;
+                           conceptos/, [id]/editar y la anulación son solo del ADMINISTRADOR
     reportes/              solo ADMINISTRADOR
     usuarios/              solo ADMINISTRADOR
     layout.tsx             valida sesión + navegación según rol
@@ -208,4 +209,4 @@ El service worker solo se registra en producción. Para probarlo en local: `npm 
 
 ## Próximos pasos
 
-El módulo de [Especificacion_Compras_Stock.md](Especificacion_Compras_Stock.md) está completo (compras e inventario). Sigue la Etapa 2 de [Especificacion_Cierre_Cuentas.md](Especificacion_Cierre_Cuentas.md): abonos de clientes, pagos a proveedores y gastos, integrados al cierre. Después, reportes.
+El módulo de [Especificacion_Compras_Stock.md](Especificacion_Compras_Stock.md) está completo (compras e inventario). La Etapa 1 de [Especificacion_Gastos.md](Especificacion_Gastos.md) también: registro de gastos por concepto, anulación y gastos de caja descontados en el cierre. Siguen la Etapa 2 de gastos (resumen mensual y gastos fijos) y la Etapa 2 de [Especificacion_Cierre_Cuentas.md](Especificacion_Cierre_Cuentas.md): abonos de clientes y pagos a proveedores, integrados al cierre. Después, reportes.

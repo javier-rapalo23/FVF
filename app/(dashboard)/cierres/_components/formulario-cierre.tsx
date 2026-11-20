@@ -29,6 +29,8 @@ export type ResumenPrevio = {
   ventasTarjeta: string;
   ventasFiado: string;
   efectivo: { ventasEfectivo: string; devolucionesEfectivo: string } | null;
+  /** Gastos pagados con el efectivo del cajón. Los ve también el empleado: los registró él. */
+  gastosCaja: { total: string; cantidad: number };
 };
 
 type Paso = "contar" | "confirmar" | "listo";
@@ -362,6 +364,9 @@ export function FormularioCierre({
                   signo="−"
                 />
               ) : null}
+              {aDecimal(previa.gastosCaja).gt(0) ? (
+                <FilaMonto etiqueta="Gastos de caja" valor={previa.gastosCaja} signo="−" />
+              ) : null}
               <div className="border-t border-borde pt-1.5">
                 <FilaMonto etiqueta="Esperado en la caja" valor={previa.esperado} fuerte />
               </div>
@@ -444,6 +449,12 @@ export function FormularioCierre({
           <FilaMonto etiqueta="Transferencia" valor={resumen.ventasTransferencia} />
           <FilaMonto etiqueta="Tarjeta" valor={resumen.ventasTarjeta} />
           <FilaMonto etiqueta="Fiado" valor={resumen.ventasFiado} />
+          <div className="border-t border-borde pt-1.5">
+            <FilaMonto
+              etiqueta={`Gastos de caja (${resumen.gastosCaja.cantidad})`}
+              valor={resumen.gastosCaja.total}
+            />
+          </div>
         </dl>
         <p className="mt-4 text-[12px] leading-relaxed text-tinta-suave">
           Transferencia, tarjeta y fiado no están en el cajón: se informan, no se cuentan. Los totales

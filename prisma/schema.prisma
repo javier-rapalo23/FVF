@@ -63,8 +63,18 @@ enum TipoAjusteStock {
 
 enum CategoriaGasto {
   OPERATIVO
+  /// Costos ligados a la mercadería que no entran al stock (fletes, bolsas, hielo).
   MERCADERIA
   ADMINISTRATIVO
+}
+
+enum MedioPagoGasto {
+  /// Sale del cajón de ventas de la sucursal: resta en el cierre de caja.
+  EFECTIVO_CAJA
+  /// Efectivo que no sale del cajón (lo pone el dueño, caja fuerte).
+  EFECTIVO_FUERA_CAJA
+  TRANSFERENCIA
+  TARJETA
 }
 
 model Sucursal {
@@ -89,7 +99,7 @@ model Categoria {
 }
 
 model Proveedor {
-  id       Int     @id @default(autoincrement())
+  id            Int     @id @default(autoincrement())
   nombre        String
   telefono      String?
   /// RTN hondureño: 14 dígitos, guardado sin guiones.
@@ -162,6 +172,7 @@ model Usuario {
   cierresRevisados  CierreCaja[]      @relation("CierresRevisados")
   anulacionesCompra AnulacionCompra[]
   ajustesStock      AjusteStock[]
+  anulacionesGasto  AnulacionGasto[]
 }
 
 model Cliente {
@@ -391,21 +402,60 @@ model CierreCaja {
   revisadoPor          Usuario?    @relation("CierresRevisados", fields: [revisadoPorId], references: [id])
   revisadoEn           DateTime?
   notaRevision         String?
+  /// Gastos pagados con el efectivo del cajón en este período.
+  gastosCaja           Decimal     @default(0) @db.Decimal(10, 2)
 
   ventas           Venta[]
   anulacionesVenta AnulacionVenta[]
+  gastos           Gasto[]
 
   @@index([sucursalId, fecha])
 }
 
+/// Concepto de gasto (Alquiler, Fletes…). La categoría del gasto sale de acá.
+model ConceptoGasto {
+  id        Int            @id @default(autoincrement())
+  nombre    String         @unique
+  categoria CategoriaGasto
+  activo    Boolean        @default(true)
+  gastos    Gasto[]
+}
+
 model Gasto {
-  id          Int            @id @default(autoincrement())
-  fecha       DateTime       @default(now())
-  categoria   CategoriaGasto
-  monto       Decimal        @db.Decimal(10, 2)
-  usuarioId   Int
-  usuario     Usuario        @relation(fields: [usuarioId], references: [id])
-  sucursalId  Int?
-  sucursal    Sucursal?      @relation(fields: [sucursalId], references: [id])
-  descripcion String?
+  id                Int             @id @default(autoincrement())
+  /// Día del pago (mediodía local). La hora real de registro es `creadoEn`.
+  fecha             DateTime
+  conceptoId        Int
+  concepto          ConceptoGasto   @relation(fields: [conceptoId], references: [id])
+  monto             Decimal         @db.Decimal(10, 2)
+  medioPago         MedioPagoGasto
+  descripcion       String
+  numeroComprobante String?
+  usuarioId         Int
+  usuario           Usuario         @relation(fields: [usuarioId], references: [id])
+  /// Nula = gasto general de la empresa. Obligatoria si se pagó con efectivo de caja.
+  sucursalId        Int?
+  sucursal          Sucursal?       @relation(fields: [sucursalId], references: [id])
+  /// Generada al abrir el formulario: un doble envío no duplica el gasto.
+  claveIdempotencia String          @unique
+  anulado           Boolean         @default(false)
+  anulacion         AnulacionGasto?
+  /// Cierre que lo descontó del efectivo. Solo gastos de caja; nulo = pendiente.
+  cierreCajaId      Int?
+  cierreCaja        CierreCaja?     @relation(fields: [cierreCajaId], references: [id])
+  creadoEn          DateTime        @default(now())
+
+  @@index([fecha])
+  @@index([sucursalId, cierreCajaId])
+  @@index([conceptoId])
+}
+
+model AnulacionGasto {
+  id        Int      @id @default(autoincrement())
+  gastoId   Int      @unique
+  gasto     Gasto    @relation(fields: [gastoId], references: [id])
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  motivo    String
+  fecha     DateTime @default(now())
 }

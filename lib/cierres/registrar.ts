@@ -5,7 +5,12 @@ import { aDecimal, textoMonto, validarMontoNoNegativo } from "@/lib/calculos";
 import { DENOMINACIONES, DIFERENCIA_CIERRE_NOTA } from "@/lib/config";
 import { prisma } from "@/lib/prisma";
 
-import { estadoCaja, totalesDeCierre, totalesPendientes } from "./calcular";
+import {
+  estadoCaja,
+  filtroGastosPendientes,
+  totalesDeCierre,
+  totalesPendientes,
+} from "./calcular";
 import {
   ErrorCierre,
   type DetalleConteo,
@@ -162,6 +167,7 @@ function resultado(
     ventasTarjeta: Prisma.Decimal;
     ventasFiado: Prisma.Decimal;
     cantidadVentas: number;
+    gastosCaja: Prisma.Decimal;
     totalSistema: Prisma.Decimal;
     totalContado: Prisma.Decimal;
     diferencia: Prisma.Decimal;
@@ -181,6 +187,7 @@ function resultado(
       ventasTarjeta: textoMonto(cierre.ventasTarjeta),
       ventasFiado: textoMonto(cierre.ventasFiado),
       cantidadVentas: cierre.cantidadVentas,
+      gastosCaja: textoMonto(cierre.gastosCaja),
       esperado: textoMonto(cierre.totalSistema),
     },
     totalContado: textoMonto(cierre.totalContado),
@@ -199,6 +206,7 @@ const SELECCION_RESULTADO = {
   ventasTarjeta: true,
   ventasFiado: true,
   cantidadVentas: true,
+  gastosCaja: true,
   totalSistema: true,
   totalContado: true,
   diferencia: true,
@@ -322,6 +330,12 @@ export async function registrarCierre(usuario: UsuarioActivo, crudo: unknown): P
         },
         data: { cierreCajaId: cierre.id },
       });
+      // Gastos pagados con el efectivo del cajón. Entran también los anulados
+      // (no restan), igual que una venta anulada dentro del período.
+      await tx.gasto.updateMany({
+        where: filtroGastosPendientes(sucursal.id, estado.inicioCadena),
+        data: { cierreCajaId: cierre.id },
+      });
 
       const totales: TotalesCierre = await totalesDeCierre(tx, cierre.id, fondoInicial);
       const esperado = aDecimal(totales.esperado);
@@ -342,6 +356,7 @@ export async function registrarCierre(usuario: UsuarioActivo, crudo: unknown): P
           ventasTarjeta: totales.ventasTarjeta,
           ventasFiado: totales.ventasFiado,
           cantidadVentas: totales.cantidadVentas,
+          gastosCaja: totales.gastosCaja,
           totalSistema: esperado,
           diferencia,
         },
