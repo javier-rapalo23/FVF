@@ -5,6 +5,7 @@ import { Pestanas } from "@/components/ui/pagina";
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { prisma } from "@/lib/prisma";
 
+import { BotonGastoCaja } from "./_components/boton-gasto-caja";
 import { PantallaCaja } from "./_components/pantalla-caja";
 import { PESTANAS_CAJA } from "./_components/pestanas";
 
@@ -26,7 +27,12 @@ export default async function CajaPage() {
 
   return (
     <section>
-      <Pestanas items={PESTANAS_CAJA} activa="/caja" />
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <Pestanas items={PESTANAS_CAJA} activa="/caja" />
+        </div>
+        <BotonGastoCaja />
+      </div>
       <PantallaCaja
         usuario={{ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre }}
         sucursales={sucursales}
