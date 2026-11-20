@@ -63,6 +63,47 @@ export function leerFormulario(datos: FormData) {
       return valor;
     },
 
+    /** RTN hondureño opcional: 14 dígitos; se aceptan guiones o espacios y se guarda solo con dígitos. */
+    rtn(campo: string): string | null {
+      const valor = crudo(campo);
+      if (!valor) return null;
+      if (!/^[\d\s-]+$/.test(valor)) {
+        fallar(campo, "Solo números y guiones.");
+        return valor;
+      }
+      const digitos = valor.replace(/\D/g, "");
+      if (digitos.length !== 14) fallar(campo, "El RTN lleva 14 dígitos.");
+      return digitos;
+    },
+
+    /** Correo opcional, en minúsculas. */
+    correo(campo: string): string | null {
+      const valor = crudo(campo).toLowerCase();
+      if (!valor) return null;
+      if (valor.length > 120) fallar(campo, "Máximo 120 caracteres.");
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)) fallar(campo, "Correo inválido.");
+      return valor;
+    },
+
+    /**
+     * Texto opcional de varias líneas (observaciones). Conserva los saltos de
+     * línea, que `crudo` colapsa: eso está bien para nombres pero no para notas.
+     */
+    textoLargo(campo: string, { max = 500 }: { max?: number } = {}): string | null {
+      const valor = datos.get(campo);
+      if (typeof valor !== "string") return null;
+      const limpio = valor
+        .replace(/\r\n?/g, "\n")
+        .split("\n")
+        .map((linea) => linea.trim().replace(/[ \t]+/g, " "))
+        .join("\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+      if (!limpio) return null;
+      if (limpio.length > max) fallar(campo, `Máximo ${max} caracteres.`);
+      return limpio;
+    },
+
     entero(campo: string, { min = 1 }: { min?: number } = {}): number {
       const valor = crudo(campo);
       const numero = Number(valor);

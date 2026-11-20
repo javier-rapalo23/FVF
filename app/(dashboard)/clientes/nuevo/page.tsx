@@ -21,6 +21,10 @@ export default function NuevoClientePage() {
         inicial={{
           nombre: "",
           telefono: "",
+          rtn: "",
+          correo: "",
+          direccion: "",
+          observaciones: "",
           tipo: "MINORISTA",
           fiadoHabilitado: false,
           limiteCredito: "",

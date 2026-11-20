@@ -192,3 +192,17 @@ export function Volver({ href, children }: { href: string; children: ReactNode }
     </Link>
   );
 }
+
+/** Un dato de una ficha (rótulo + valor). Si falta se muestra una raya para no dejar el hueco. */
+export function Dato({ etiqueta, children }: { etiqueta: string; children?: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-tinta-suave">
+        {etiqueta}
+      </dt>
+      <dd className="mt-1 text-[13px] text-tinta">
+        {children ?? <span className="text-tinta-suave">—</span>}
+      </dd>
+    </div>
+  );
+}

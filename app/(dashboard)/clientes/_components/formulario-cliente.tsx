@@ -3,7 +3,7 @@
 import type { TipoCliente } from "@prisma/client";
 import { useState } from "react";
 
-import { CLASES_INPUT, Campo, GrupoCampo } from "@/components/ui/campo";
+import { CLASES_INPUT, Campo, CampoObservaciones, GrupoCampo } from "@/components/ui/campo";
 import {
   AlertaFormulario,
   PieFormulario,
@@ -16,6 +16,10 @@ import { FORMULARIO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
 export type ClienteFormulario = {
   nombre: string;
   telefono: string;
+  rtn: string;
+  correo: string;
+  direccion: string;
+  observaciones: string;
   tipo: TipoCliente;
   fiadoHabilitado: boolean;
   limiteCredito: string;
@@ -26,10 +30,13 @@ export function FormularioCliente({
   accion,
   inicial,
   esNuevo,
+  volverA = "/clientes",
 }: {
   accion: (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
   inicial: ClienteFormulario;
   esNuevo: boolean;
+  /** A dónde lleva "Cancelar". */
+  volverA?: string;
 }) {
   const [estado, alEnviar, pendiente] = useFormulario(accion, FORMULARIO_INICIAL);
   const [tipo, setTipo] = useState<TipoCliente>(inicial.tipo);
@@ -61,6 +68,20 @@ export function FormularioCliente({
             />
           </div>
           <Campo
+            id="rtn"
+            name="rtn"
+            etiqueta="RTN (opcional)"
+            defaultValue={inicial.rtn}
+            placeholder="0801-1990-123456"
+            inputMode="numeric"
+            maxLength={20}
+            ayuda="14 dígitos. Los guiones son opcionales."
+            error={errores.rtn}
+          />
+        </SeccionFormulario>
+
+        <SeccionFormulario titulo="Contacto" descripcion="Todos los campos son opcionales.">
+          <Campo
             id="telefono"
             name="telefono"
             etiqueta="Teléfono"
@@ -70,6 +91,35 @@ export function FormularioCliente({
             maxLength={30}
             error={errores.telefono}
           />
+          <Campo
+            id="correo"
+            name="correo"
+            etiqueta="Correo"
+            type="email"
+            defaultValue={inicial.correo}
+            placeholder="cliente@correo.com"
+            maxLength={120}
+            autoComplete="off"
+            error={errores.correo}
+          />
+          <div className="sm:col-span-2">
+            <Campo
+              id="direccion"
+              name="direccion"
+              etiqueta="Dirección"
+              defaultValue={inicial.direccion}
+              placeholder="Colonia, calle, ciudad"
+              maxLength={250}
+              error={errores.direccion}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <CampoObservaciones
+              inicial={inicial.observaciones}
+              error={errores.observaciones}
+              ayuda="Referencias de entrega, horario para cobrar, persona de contacto…"
+            />
+          </div>
         </SeccionFormulario>
 
         <SeccionFormulario
@@ -173,7 +223,7 @@ export function FormularioCliente({
         </SeccionFormulario>
 
         <PieFormulario
-          volverA="/clientes"
+          volverA={volverA}
           pendiente={pendiente}
           textoEnviar={esNuevo ? "Crear cliente" : "Guardar cambios"}
         />

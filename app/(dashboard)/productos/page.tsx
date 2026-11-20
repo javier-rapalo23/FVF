@@ -146,6 +146,7 @@ export default async function ProductosPage({
                   { label: "Mayorista", derecha: true },
                   { label: "Stock", derecha: true, ocultaMovil: true },
                   { label: "Vence", ocultaMovil: true },
+                  { label: "Acciones", derecha: true },
                 ]}
               >
                 {productos.map((producto) => {
@@ -192,6 +193,16 @@ export default async function ProductosPage({
                       </Celda>
                       <Celda ocultaMovil>
                         <Vencimiento fecha={producto.fechaVencimiento} />
+                      </Celda>
+                      <Celda derecha>
+                        <Link
+                          href={`/productos/${producto.id}`}
+                          className={clasesBoton("fantasma", "sm")}
+                          aria-label={`Editar ${producto.nombre}`}
+                        >
+                          <Icono nombre="editar" tamano={15} />
+                          Editar
+                        </Link>
                       </Celda>
                     </Fila>
                   );

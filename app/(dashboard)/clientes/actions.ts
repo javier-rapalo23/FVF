@@ -22,6 +22,10 @@ export async function guardarCliente(
   const cliente = {
     nombre: f.texto("nombre"),
     telefono: f.textoOpcional("telefono", { max: 30 }),
+    rtn: f.rtn("rtn"),
+    correo: f.correo("correo"),
+    direccion: f.textoOpcional("direccion", { max: 250 }),
+    observaciones: f.textoLargo("observaciones"),
     tipo: f.opcion("tipo", TIPOS),
     fiadoHabilitado: f.booleano("fiadoHabilitado"),
     // Tope de deuda para el fiado. Vacío = sin tope. Se conserva aunque el
@@ -31,6 +35,18 @@ export async function guardarCliente(
   };
 
   if (!f.valido) return f.estado();
+
+  // Dos fichas con el mismo RTN partirían en dos la cuenta del cliente.
+  if (cliente.rtn) {
+    const mismoRtn = await prisma.cliente.findFirst({
+      where: { rtn: cliente.rtn, ...(id === null ? {} : { NOT: { id } }) },
+      select: { nombre: true },
+    });
+    if (mismoRtn) {
+      f.fallar("rtn", `Ya lo tiene el cliente «${mismoRtn.nombre}».`);
+      return f.estado();
+    }
+  }
 
   try {
     if (id === null) {
@@ -45,7 +61,9 @@ export async function guardarCliente(
     throw error;
   }
 
-  revalidatePath("/clientes");
+  revalidatePath("/clientes", "layout");
   revalidatePath("/caja");
-  redirect(`/clientes?guardado=${encodeURIComponent(cliente.nombre)}`);
+  const aviso = `guardado=${encodeURIComponent(cliente.nombre)}`;
+  // Al editar se vuelve a la ficha, que es desde donde se llegó al formulario.
+  redirect(id === null ? `/clientes?${aviso}` : `/clientes/${id}?${aviso}`);
 }

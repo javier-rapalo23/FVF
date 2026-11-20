@@ -63,6 +63,7 @@ export default async function EditarProductoPage({
             ? fechaISO(producto.fechaVencimiento)
             : "",
           stockMinimo: producto.stockMinimo === null ? "" : String(aNumero(producto.stockMinimo.toString())),
+          observaciones: producto.observaciones ?? "",
           activo: producto.activo,
         }}
       />

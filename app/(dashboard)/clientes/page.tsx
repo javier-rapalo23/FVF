@@ -31,9 +31,12 @@ export default async function ClientesPage({
 
   const where: Prisma.ClienteWhereInput = { ...filtroActivo(estado) };
   if (q) {
+    // El RTN se guarda sin guiones: "0801-1990" también tiene que encontrarlo.
+    const digitos = q.replace(/\D/g, "");
     where.OR = [
       { nombre: { contains: q, mode: "insensitive" } },
       { telefono: { contains: q } },
+      ...(digitos.length >= 4 ? [{ rtn: { contains: digitos } }] : []),
     ];
   }
   if (tipo === "MINORISTA" || tipo === "MAYORISTA") where.tipo = tipo;
@@ -85,7 +88,7 @@ export default async function ClientesPage({
       ) : (
         <>
           <BarraFiltros
-            placeholder="Buscar por nombre o teléfono"
+            placeholder="Buscar por nombre, teléfono o RTN"
             valores={parametros}
             filtros={[
               {
@@ -113,6 +116,7 @@ export default async function ClientesPage({
                   { label: "Tipo" },
                   { label: "Teléfono", ocultaMovil: true },
                   { label: "Fiado", derecha: true },
+                  { label: "Acciones", derecha: true },
                 ]}
               >
                 {clientes.map((cliente) => (
@@ -144,6 +148,16 @@ export default async function ClientesPage({
                       ) : (
                         `Hasta ${formatoMoneda(cliente.limiteCredito.toString())}`
                       )}
+                    </Celda>
+                    <Celda derecha>
+                      <Link
+                        href={`/clientes/${cliente.id}/editar`}
+                        className={clasesBoton("fantasma", "sm")}
+                        aria-label={`Editar ${cliente.nombre}`}
+                      >
+                        <Icono nombre="editar" tamano={15} />
+                        Editar
+                      </Link>
                     </Celda>
                   </Fila>
                 ))}

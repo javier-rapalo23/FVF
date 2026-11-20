@@ -46,6 +46,7 @@ export async function guardarProducto(
       "stockMinimo",
       UNIDADES.includes(unidadVenta) ? unidadVenta : undefined,
     ),
+    observaciones: f.textoLargo("observaciones"),
     // Un producto nuevo siempre nace activo; el interruptor solo existe al editar.
     activo: id === null ? true : f.booleano("activo"),
   };

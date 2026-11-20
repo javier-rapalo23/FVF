@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Campo, GrupoCampo } from "@/components/ui/campo";
+import { Campo, CampoObservaciones, GrupoCampo } from "@/components/ui/campo";
 import {
   AlertaFormulario,
   PieFormulario,
@@ -12,16 +12,27 @@ import {
 import { Segmentado } from "@/components/ui/segmentado";
 import { FORMULARIO_INICIAL, type EstadoFormulario } from "@/lib/formulario";
 
-export type ProveedorFormulario = { nombre: string; telefono: string; activo: boolean };
+export type ProveedorFormulario = {
+  nombre: string;
+  telefono: string;
+  rtn: string;
+  correo: string;
+  direccion: string;
+  observaciones: string;
+  activo: boolean;
+};
 
 export function FormularioProveedor({
   accion,
   inicial,
   esNuevo,
+  volverA = "/proveedores",
 }: {
   accion: (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
   inicial: ProveedorFormulario;
   esNuevo: boolean;
+  /** A dónde lleva "Cancelar". */
+  volverA?: string;
 }) {
   const [estado, alEnviar, pendiente] = useFormulario(accion, FORMULARIO_INICIAL);
   const [activo, setActivo] = useState(inicial.activo ? "si" : "no");
@@ -50,14 +61,15 @@ export function FormularioProveedor({
             />
           </div>
           <Campo
-            id="telefono"
-            name="telefono"
-            etiqueta="Teléfono"
-            type="tel"
-            defaultValue={inicial.telefono}
-            placeholder="+504 9876-5432"
-            maxLength={30}
-            error={errores.telefono}
+            id="rtn"
+            name="rtn"
+            etiqueta="RTN (opcional)"
+            defaultValue={inicial.rtn}
+            placeholder="0801-1990-123456"
+            inputMode="numeric"
+            maxLength={20}
+            ayuda="14 dígitos. Los guiones son opcionales."
+            error={errores.rtn}
           />
 
           {esNuevo ? null : (
@@ -83,8 +95,53 @@ export function FormularioProveedor({
           )}
         </SeccionFormulario>
 
+        <SeccionFormulario
+          titulo="Contacto"
+          descripcion="Todos los campos son opcionales."
+        >
+          <Campo
+            id="telefono"
+            name="telefono"
+            etiqueta="Teléfono"
+            type="tel"
+            defaultValue={inicial.telefono}
+            placeholder="+504 9876-5432"
+            maxLength={30}
+            error={errores.telefono}
+          />
+          <Campo
+            id="correo"
+            name="correo"
+            etiqueta="Correo"
+            type="email"
+            defaultValue={inicial.correo}
+            placeholder="ventas@proveedor.hn"
+            maxLength={120}
+            autoComplete="off"
+            error={errores.correo}
+          />
+          <div className="sm:col-span-2">
+            <Campo
+              id="direccion"
+              name="direccion"
+              etiqueta="Dirección"
+              defaultValue={inicial.direccion}
+              placeholder="Colonia, calle, ciudad"
+              maxLength={250}
+              error={errores.direccion}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <CampoObservaciones
+              inicial={inicial.observaciones}
+              error={errores.observaciones}
+              ayuda="Días de visita, condiciones de entrega, persona de contacto…"
+            />
+          </div>
+        </SeccionFormulario>
+
         <PieFormulario
-          volverA="/proveedores"
+          volverA={volverA}
           pendiente={pendiente}
           textoEnviar={esNuevo ? "Crear proveedor" : "Guardar cambios"}
         />

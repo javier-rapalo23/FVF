@@ -112,3 +112,31 @@ export function CampoSelect({
 
 /** Select suelto (filtros de listado), con el mismo chevron que `CampoSelect`. */
 export const CLASES_SELECT_SUELTO = `${CLASES_INPUT} ${CLASES_SELECT}`;
+
+/** Texto libre de varias líneas para notas internas (`name="observaciones"`). */
+export function CampoObservaciones({
+  inicial,
+  error,
+  ayuda,
+  max = 500,
+}: {
+  inicial: string;
+  error?: string;
+  ayuda?: ReactNode;
+  max?: number;
+}) {
+  return (
+    <GrupoCampo etiqueta="Observaciones" htmlFor="observaciones" ayuda={ayuda} error={error}>
+      <textarea
+        id="observaciones"
+        name="observaciones"
+        defaultValue={inicial}
+        maxLength={max}
+        rows={3}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? "observaciones-error" : undefined}
+        className={`py-2 ${CLASES_INPUT}`}
+      />
+    </GrupoCampo>
+  );
+}

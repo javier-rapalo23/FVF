@@ -32,9 +32,12 @@ export default async function ProveedoresPage({
 
   const where: Prisma.ProveedorWhereInput = { ...filtroActivo(estado) };
   if (q) {
+    // El RTN se guarda sin guiones: "0801-1990" también tiene que encontrarlo.
+    const digitos = q.replace(/\D/g, "");
     where.OR = [
       { nombre: { contains: q, mode: "insensitive" } },
       { telefono: { contains: q } },
+      ...(digitos.length >= 4 ? [{ rtn: { contains: digitos } }] : []),
     ];
   }
 
@@ -88,7 +91,7 @@ export default async function ProveedoresPage({
       ) : (
         <>
           <BarraFiltros
-            placeholder="Buscar por nombre o teléfono"
+            placeholder="Buscar por nombre, teléfono o RTN"
             valores={parametros}
             filtros={[{ nombre: "estado", etiqueta: "Estado", opciones: OPCIONES_ESTADO }]}
           />
@@ -106,6 +109,7 @@ export default async function ProveedoresPage({
                   { label: "Productos", derecha: true, ocultaMovil: true },
                   { label: "Compras", derecha: true, ocultaMovil: true },
                   { label: "Saldo por pagar", derecha: true },
+                  { label: "Acciones", derecha: true },
                 ]}
               >
                 {proveedores.map((proveedor) => (
@@ -131,6 +135,16 @@ export default async function ProveedoresPage({
                       {proveedor._count.compras}
                     </Celda>
                     <SaldoCelda saldo={saldos.get(proveedor.id)?.toString() ?? "0"} />
+                    <Celda derecha>
+                      <Link
+                        href={`/proveedores/${proveedor.id}/editar`}
+                        className={clasesBoton("fantasma", "sm")}
+                        aria-label={`Editar ${proveedor.nombre}`}
+                      >
+                        <Icono nombre="editar" tamano={15} />
+                        Editar
+                      </Link>
+                    </Celda>
                   </Fila>
                 ))}
               </Tabla>

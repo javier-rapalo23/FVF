@@ -18,7 +18,15 @@ export default function NuevoProveedorPage() {
       <FormularioProveedor
         accion={guardarProveedor.bind(null, null)}
         esNuevo
-        inicial={{ nombre: "", telefono: "", activo: true }}
+        inicial={{
+          nombre: "",
+          telefono: "",
+          rtn: "",
+          correo: "",
+          direccion: "",
+          observaciones: "",
+          activo: true,
+        }}
       />
     </section>
   );

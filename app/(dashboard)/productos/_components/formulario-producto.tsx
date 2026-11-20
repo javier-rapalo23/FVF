@@ -4,7 +4,13 @@ import type { UnidadVenta } from "@prisma/client";
 import { useRef, useState, useTransition, type ReactNode } from "react";
 
 import { Boton } from "@/components/ui/boton";
-import { CLASES_INPUT, Campo, CampoSelect, GrupoCampo } from "@/components/ui/campo";
+import {
+  CLASES_INPUT,
+  Campo,
+  CampoObservaciones,
+  CampoSelect,
+  GrupoCampo,
+} from "@/components/ui/campo";
 import {
   AlertaFormulario,
   PieFormulario,
@@ -35,6 +41,7 @@ export type ProductoFormulario = {
   fechaVencimiento: string;
   /** Vacío = sin alerta de stock bajo. */
   stockMinimo: string;
+  observaciones: string;
   activo: boolean;
 };
 
@@ -256,6 +263,16 @@ export function FormularioProducto({
               />
             </GrupoCampo>
           )}
+        </SeccionFormulario>
+
+        <SeccionFormulario titulo="Notas" descripcion="Opcional. Solo se ve en esta ficha.">
+          <div className="sm:col-span-2">
+            <CampoObservaciones
+              inicial={inicial.observaciones}
+              error={errores.observaciones}
+              ayuda="Presentación, marca preferida, cómo se almacena…"
+            />
+          </div>
         </SeccionFormulario>
 
         <PieFormulario

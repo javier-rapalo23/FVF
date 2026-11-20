@@ -4,24 +4,26 @@ import { notFound } from "next/navigation";
 
 import { clasesBoton } from "@/components/ui/boton";
 import { Etiqueta } from "@/components/ui/etiqueta";
-import { EncabezadoPagina, Tarjeta, Volver } from "@/components/ui/pagina";
+import { Icono } from "@/components/ui/icono";
+import { AvisoGuardado, Dato, EncabezadoPagina, Tarjeta, Volver } from "@/components/ui/pagina";
 import { Celda, Fila, Tabla } from "@/components/ui/tabla";
 import { saldoDeProveedor } from "@/lib/compras/saldo";
-import { fecha, formatoMoneda } from "@/lib/formato";
+import { fecha, formatoMoneda, formatoRtn } from "@/lib/formato";
+import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 
-import { guardarProveedor } from "../actions";
-import { FormularioProveedor } from "../_components/formulario-proveedor";
-
 export const metadata: Metadata = {
-  title: "Editar proveedor | Inversiones Ferrera",
+  title: "Proveedor | Inversiones Ferrera",
 };
 
-export default async function EditarProveedorPage({
+export default async function ProveedorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: ParametrosBusqueda;
 }) {
+  const { guardado } = await leerParametros(searchParams);
   const id = Number((await params).id);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
@@ -51,7 +53,51 @@ export default async function EditarProveedorPage({
       <EncabezadoPagina
         titulo={proveedor.nombre}
         meta={proveedor.activo ? null : <Etiqueta>Inactivo</Etiqueta>}
+        acciones={
+          <Link
+            href={`/proveedores/${proveedor.id}/editar`}
+            className={clasesBoton("secundario")}
+          >
+            <Icono nombre="editar" tamano={16} />
+            Editar
+          </Link>
+        }
       />
+
+      <AvisoGuardado nombre={guardado} />
+
+      <Tarjeta className="mb-4 max-w-4xl px-5 py-4">
+        <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+          <Dato etiqueta="Teléfono">
+            {proveedor.telefono ? (
+              <a href={`tel:${proveedor.telefono}`} className="cifras underline-offset-2 hover:underline">
+                {proveedor.telefono}
+              </a>
+            ) : null}
+          </Dato>
+          <Dato etiqueta="RTN">
+            {proveedor.rtn ? <span className="cifras">{formatoRtn(proveedor.rtn)}</span> : null}
+          </Dato>
+          <Dato etiqueta="Correo">
+            {proveedor.correo ? (
+              <a
+                href={`mailto:${proveedor.correo}`}
+                className="break-all underline-offset-2 hover:underline"
+              >
+                {proveedor.correo}
+              </a>
+            ) : null}
+          </Dato>
+          <Dato etiqueta="Dirección">{proveedor.direccion}</Dato>
+          <div className="sm:col-span-2">
+            <Dato etiqueta="Observaciones">
+              {proveedor.observaciones ? (
+                <span className="whitespace-pre-line">{proveedor.observaciones}</span>
+              ) : null}
+            </Dato>
+          </div>
+        </dl>
+      </Tarjeta>
 
       <Tarjeta className="mb-4 flex max-w-4xl flex-wrap items-end justify-between gap-4 px-5 py-4">
         <div>
@@ -74,16 +120,6 @@ export default async function EditarProveedorPage({
           Ver todas sus compras
         </Link>
       </Tarjeta>
-
-      <FormularioProveedor
-        accion={guardarProveedor.bind(null, proveedor.id)}
-        esNuevo={false}
-        inicial={{
-          nombre: proveedor.nombre,
-          telefono: proveedor.telefono ?? "",
-          activo: proveedor.activo,
-        }}
-      />
 
       <div className="mt-8 max-w-4xl">
         <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.01em] text-tinta">

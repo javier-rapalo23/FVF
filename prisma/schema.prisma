@@ -90,9 +90,14 @@ model Categoria {
 
 model Proveedor {
   id       Int     @id @default(autoincrement())
-  nombre   String
-  telefono String?
-  activo   Boolean @default(true)
+  nombre        String
+  telefono      String?
+  /// RTN hondureño: 14 dígitos, guardado sin guiones.
+  rtn           String?
+  direccion     String?
+  correo        String?
+  observaciones String?
+  activo        Boolean @default(true)
 
   productos            Producto[]
   compras              Compra[]
@@ -116,6 +121,7 @@ model Producto {
   costoActual      Decimal?    @db.Decimal(10, 2)
   /// Debajo de esta cantidad el producto aparece como "stock bajo". Nulo = sin alerta.
   stockMinimo      Decimal?    @db.Decimal(10, 3)
+  observaciones    String?
   activo           Boolean     @default(true)
   creadoEn         DateTime    @default(now())
 
@@ -166,6 +172,11 @@ model Cliente {
   fiadoHabilitado Boolean     @default(false)
   limiteCredito   Decimal?    @db.Decimal(10, 2)
   telefono        String?
+  /// RTN hondureño: 14 dígitos, guardado sin guiones.
+  rtn             String?
+  direccion       String?
+  correo          String?
+  observaciones   String?
   activo          Boolean     @default(true)
   creadoEn        DateTime    @default(now())
 

@@ -43,6 +43,11 @@ export function monto(valor: Numerico): string {
   return DOS_DECIMALES.format(aNumero(valor));
 }
 
+/** RTN guardado como 14 dígitos → `0801-1990-123456`. Otro largo se muestra tal cual. */
+export function formatoRtn(rtn: string): string {
+  return /^\d{14}$/.test(rtn) ? `${rtn.slice(0, 4)}-${rtn.slice(4, 8)}-${rtn.slice(8)}` : rtn;
+}
+
 /** Sufijo corto de la unidad de venta. */
 export function sufijoUnidad(unidad: UnidadVenta): string {
   switch (unidad) {
