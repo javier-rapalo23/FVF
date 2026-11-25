@@ -85,18 +85,31 @@ export function SeccionFormulario({
 
 export function PieFormulario({
   volverA,
+  onCancelar,
   pendiente,
   textoEnviar,
+  className = "",
 }: {
   volverA: string;
+  /** Dentro de un diálogo, "Cancelar" lo cierra en vez de navegar. */
+  onCancelar?: () => void;
   pendiente: boolean;
   textoEnviar: string;
+  className?: string;
 }) {
   return (
-    <div className="flex items-center justify-end gap-2 border-t border-borde bg-superficie-suave px-5 py-3.5">
-      <Link href={volverA} className={clasesBoton("fantasma")}>
-        Cancelar
-      </Link>
+    <div
+      className={`flex items-center justify-end gap-2 border-t border-borde bg-superficie-suave px-5 py-3.5 ${className}`}
+    >
+      {onCancelar ? (
+        <Boton variante="fantasma" onClick={onCancelar} disabled={pendiente}>
+          Cancelar
+        </Boton>
+      ) : (
+        <Link href={volverA} className={clasesBoton("fantasma")}>
+          Cancelar
+        </Link>
+      )}
       <Boton type="submit" variante="primario" disabled={pendiente}>
         {pendiente ? "Guardando…" : textoEnviar}
       </Boton>

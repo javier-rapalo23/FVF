@@ -8,6 +8,9 @@ import { useEffect, useRef, type ReactNode } from "react";
  *
  * Al abrir enfoca el primer elemento con `data-autofocus`; el `autoFocus` de
  * React no sirve porque corre cuando el diálogo todavía está cerrado.
+ *
+ * `ancho="xl"` es para formularios completos: el contenido va sin relleno
+ * (trae sus propias secciones) y el diálogo se desplaza si no entra en pantalla.
  */
 export function Dialogo({
   abierto,
@@ -20,7 +23,7 @@ export function Dialogo({
   onCerrar: () => void;
   titulo: string;
   children: ReactNode;
-  ancho?: "md" | "lg";
+  ancho?: "md" | "lg" | "xl";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
 
@@ -48,10 +51,17 @@ export function Dialogo({
       className={[
         "m-auto w-[calc(100vw-2rem)] rounded-xl border border-borde bg-superficie p-0 text-tinta shadow-elevado",
         "backdrop:bg-[rgba(31,30,28,0.35)]",
-        ancho === "lg" ? "max-w-lg" : "max-w-md",
+        ancho === "xl" ? "max-w-4xl" : ancho === "lg" ? "max-w-lg" : "max-w-md",
       ].join(" ")}
     >
-      {abierto ? (
+      {abierto && ancho === "xl" ? (
+        <div>
+          <h2 className="border-b border-borde px-5 py-4 text-[15px] font-semibold tracking-[-0.01em] text-tinta">
+            {titulo}
+          </h2>
+          {children}
+        </div>
+      ) : abierto ? (
         <div className="px-5 py-5">
           <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-tinta">{titulo}</h2>
           <div className="mt-3">{children}</div>
