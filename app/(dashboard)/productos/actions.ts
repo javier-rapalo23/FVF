@@ -21,6 +21,31 @@ export async function guardarProducto(
   _previo: EstadoFormulario,
   datos: FormData,
 ): Promise<EstadoFormulario> {
+  const resultado = await persistirProducto(id, datos);
+  if ("estado" in resultado) return resultado.estado;
+
+  redirect(`/productos?guardado=${encodeURIComponent(resultado.nombre)}`);
+}
+
+/**
+ * Alta desde el diálogo del listado: no redirige, devuelve el nombre en
+ * `exito` para que el cliente cierre el diálogo y muestre el aviso.
+ */
+export async function crearProductoDesdeDialogo(
+  _previo: EstadoFormulario,
+  datos: FormData,
+): Promise<EstadoFormulario> {
+  const resultado = await persistirProducto(null, datos);
+  if ("estado" in resultado) return resultado.estado;
+
+  return { error: null, errores: {}, exito: resultado.nombre };
+}
+
+/** Valida y guarda. Devuelve el estado con errores, o el nombre guardado. */
+async function persistirProducto(
+  id: number | null,
+  datos: FormData,
+): Promise<{ estado: EstadoFormulario } | { nombre: string }> {
   await exigirAdministrador();
 
   const f = leerFormulario(datos);
@@ -51,7 +76,7 @@ export async function guardarProducto(
     activo: id === null ? true : f.booleano("activo"),
   };
 
-  if (!f.valido) return f.estado();
+  if (!f.valido) return { estado: f.estado() };
 
   const otro = id === null ? {} : { NOT: { id } };
   const [mismoIdInterno, mismoCodigo] = await Promise.all([
@@ -69,7 +94,7 @@ export async function guardarProducto(
 
   if (mismoIdInterno) f.fallar("idInterno", `Ya lo usa «${mismoIdInterno.nombre}».`);
   if (mismoCodigo) f.fallar("codigoBarras", `Ya lo usa «${mismoCodigo.nombre}».`);
-  if (!f.valido) return f.estado();
+  if (!f.valido) return { estado: f.estado() };
 
   try {
     if (id === null) {
@@ -81,12 +106,14 @@ export async function guardarProducto(
     const duplicado = campoDuplicado(error, ["idInterno", "codigoBarras"]);
     if (duplicado) {
       f.fallar(duplicado, "Otro producto ya usa este valor.");
-      return f.estado();
+      return { estado: f.estado() };
     }
     if (esRelacionInvalida(error)) {
-      return f.estado(
-        "La categoría, el proveedor o el propio producto ya no existen. Recargá la página.",
-      );
+      return {
+        estado: f.estado(
+          "La categoría, el proveedor o el propio producto ya no existen. Recargá la página.",
+        ),
+      };
     }
     throw error;
   }
@@ -94,5 +121,5 @@ export async function guardarProducto(
   revalidatePath("/productos");
   revalidatePath("/caja");
   revalidatePath("/inventario", "layout");
-  redirect(`/productos?guardado=${encodeURIComponent(producto.nombre)}`);
+  return { nombre: producto.nombre };
 }

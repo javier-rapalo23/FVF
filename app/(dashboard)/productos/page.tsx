@@ -30,6 +30,8 @@ import {
 } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 
+import { NuevoProducto } from "./_components/nuevo-producto";
+import { opcionesProducto } from "./_components/opciones";
 import { PESTANAS_PRODUCTOS } from "./_components/pestanas";
 
 export const metadata: Metadata = {
@@ -57,7 +59,7 @@ export default async function ProductosPage({
   }
   if (/^\d+$/.test(categoria)) where.categoriaId = Number(categoria);
 
-  const [productos, categorias, total] = await Promise.all([
+  const [productos, [categorias, proveedores], total, ultimo] = await Promise.all([
     prisma.producto.findMany({
       where,
       select: {
@@ -75,26 +77,25 @@ export default async function ProductosPage({
       },
       orderBy: [{ nombre: "asc" }],
     }),
-    prisma.categoria.findMany({
-      select: { id: true, nombre: true },
-      orderBy: { nombre: "asc" },
-    }),
+    // Las categorías sirven al filtro y al formulario del diálogo de alta.
+    opcionesProducto(),
     prisma.producto.count(),
+    prisma.producto.aggregate({ _max: { idInterno: true } }),
   ]);
 
   const filtrando = Boolean(q || categoria || estado);
+  const alta = {
+    siguienteIdInterno: (ultimo._max.idInterno ?? 1000) + 1,
+    categorias,
+    proveedores,
+  };
 
   return (
     <section>
       <EncabezadoPagina
         titulo="Productos"
         descripcion="Catálogo, precios minorista y mayorista, y vencimientos. Lo inactivo no aparece en caja."
-        acciones={
-          <Link href="/productos/nuevo" className={clasesBoton("primario")}>
-            <Icono nombre="mas" tamano={16} />
-            Nuevo producto
-          </Link>
-        }
+        acciones={<NuevoProducto {...alta} />}
       />
 
       <Pestanas items={PESTANAS_PRODUCTOS} activa="/productos" />
@@ -105,11 +106,7 @@ export default async function ProductosPage({
         <EstadoVacio
           icono="productos"
           titulo="Todavía no hay productos"
-          accion={
-            <Link href="/productos/nuevo" className={clasesBoton("primario")}>
-              Cargar el primero
-            </Link>
-          }
+          accion={<NuevoProducto {...alta} texto="Cargar el primero" />}
         >
           Sin productos no se puede vender ni comprar: es lo primero que hay que cargar.
         </EstadoVacio>

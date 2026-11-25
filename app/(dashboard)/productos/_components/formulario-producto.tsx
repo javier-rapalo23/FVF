@@ -1,7 +1,7 @@
 "use client";
 
 import type { UnidadVenta } from "@prisma/client";
-import { useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 
 import { Boton } from "@/components/ui/boton";
 import {
@@ -58,6 +58,7 @@ export function FormularioProducto({
   proveedores,
   esNuevo,
   costoActual = null,
+  dialogo,
 }: {
   accion: (estado: EstadoFormulario, datos: FormData) => Promise<EstadoFormulario>;
   inicial: ProductoFormulario;
@@ -66,13 +67,21 @@ export function FormularioProducto({
   esNuevo: boolean;
   /** Último costo de compra. Solo lectura: lo actualiza el módulo de compras. */
   costoActual?: string | null;
+  /** Presente cuando el formulario vive dentro de un diálogo (alta rápida). */
+  dialogo?: { onCancelar: () => void; onGuardado: (nombre: string) => void };
 }) {
   const [estado, alEnviar, pendiente] = useFormulario(accion, FORMULARIO_INICIAL);
+  const alGuardar = dialogo?.onGuardado;
   const [unidad, setUnidad] = useState<UnidadVenta>(inicial.unidadVenta);
   const [activo, setActivo] = useState(inicial.activo ? "si" : "no");
   const [minorista, setMinorista] = useState(inicial.precioMinorista);
   const [mayorista, setMayorista] = useState(inicial.precioMayorista);
   const nombre = useRef<HTMLInputElement>(null);
+
+  // En el diálogo la acción no redirige: avisa con `exito` y el padre cierra.
+  useEffect(() => {
+    if (estado.exito) alGuardar?.(estado.exito);
+  }, [estado, alGuardar]);
 
   const { errores } = estado;
   const sufijo = sufijoUnidad(unidad);
@@ -82,8 +91,12 @@ export function FormularioProducto({
     minorista !== "" && mayorista !== "" && Number(mayorista) > Number(minorista);
 
   return (
-    <form onSubmit={alEnviar} noValidate className="max-w-4xl">
-      <div className="overflow-hidden rounded-xl border border-borde bg-superficie">
+    <form onSubmit={alEnviar} noValidate className={dialogo ? "" : "max-w-4xl"}>
+      <div
+        className={
+          dialogo ? "bg-superficie" : "overflow-hidden rounded-xl border border-borde bg-superficie"
+        }
+      >
         {estado.error ? (
           <div className="px-5 pt-5">
             <AlertaFormulario mensaje={estado.error} />
@@ -135,7 +148,9 @@ export function FormularioProducto({
               placeholder="Ej. Tomate larga vida"
               maxLength={120}
               required
-              autoFocus={esNuevo}
+              autoFocus={esNuevo && !dialogo}
+              // `Dialogo` enfoca este campo al abrir (autoFocus no sirve ahí).
+              data-autofocus={dialogo ? true : undefined}
               error={errores.nombre}
             />
           </div>
@@ -277,6 +292,9 @@ export function FormularioProducto({
 
         <PieFormulario
           volverA="/productos"
+          onCancelar={dialogo?.onCancelar}
+          // En el diálogo el pie queda fijo abajo mientras se desplaza el formulario.
+          className={dialogo ? "sticky bottom-0" : ""}
           pendiente={pendiente}
           textoEnviar={esNuevo ? "Crear producto" : "Guardar cambios"}
         />
@@ -421,7 +439,11 @@ function SelectorCategoria({
                 evento.preventDefault();
                 crear();
               }
-              if (evento.key === "Escape" && opciones.length > 0) setCreando(false);
+              if (evento.key === "Escape" && opciones.length > 0) {
+                // Sin esto, dentro del diálogo `Esc` también lo cerraría.
+                evento.preventDefault();
+                setCreando(false);
+              }
             }}
             placeholder="Ej. Lácteos"
             maxLength={60}
