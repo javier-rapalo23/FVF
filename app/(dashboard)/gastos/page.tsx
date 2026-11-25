@@ -12,7 +12,7 @@ import { EncabezadoPagina, EstadoVacio, Pestanas, Tarjeta } from "@/components/u
 import { Celda, Fila, Tabla } from "@/components/ui/tabla";
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { aDecimal } from "@/lib/calculos";
-import { diaDelNegocio, esDiaValido, inicioYFinDelDia, sumarDias } from "@/lib/fecha";
+import { diaDelNegocio } from "@/lib/fecha";
 import { fecha, formatoMoneda } from "@/lib/formato";
 import {
   CATEGORIAS_GASTO,
@@ -20,6 +20,7 @@ import {
   NOMBRE_CATEGORIA,
   NOMBRE_MEDIO,
 } from "@/lib/gastos/tipos";
+import { consultaDeFiltro, DIAS_EMPLEADO, filtroDeGastos } from "@/lib/gastos/listado";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 
@@ -28,8 +29,6 @@ import { PESTANAS_GASTOS } from "./_components/pestanas";
 export const metadata: Metadata = { title: "Gastos | Inversiones Ferrera" };
 
 const POR_PAGINA = 50;
-/** Lo que ve el empleado: los gastos de caja de su sucursal de los últimos días. */
-const DIAS_EMPLEADO = 30;
 
 export default async function GastosPage({ searchParams }: { searchParams: ParametrosBusqueda }) {
   const usuario = await requerirUsuarioActivo();
@@ -70,32 +69,8 @@ export default async function GastosPage({ searchParams }: { searchParams: Param
   }
 
   // ---------------------------------------------------------------- Filtros
-  const desde = esAdmin
-    ? esDiaValido(parametros.desde ?? "")
-      ? parametros.desde!
-      : `${hoy.slice(0, 8)}01`
-    : sumarDias(hoy, -DIAS_EMPLEADO);
-  const hasta = esAdmin && esDiaValido(parametros.hasta ?? "") ? parametros.hasta! : hoy;
-  const sucursal = esAdmin ? (parametros.sucursal ?? "") : "";
-  const categoria = CATEGORIAS_GASTO.find((c) => c === parametros.categoria) ?? null;
-  const conceptoId = esAdmin && /^\d{1,9}$/.test(parametros.concepto ?? "") ? Number(parametros.concepto) : null;
-  const medio = esAdmin ? (MEDIOS_GASTO.find((m) => m === parametros.medio) ?? null) : null;
-  const incluirAnulados = !esAdmin || parametros.anulados === "1";
-
-  const base: Prisma.GastoWhereInput = {
-    fecha: { gte: inicioYFinDelDia(desde).inicio, lt: inicioYFinDelDia(hasta).fin },
-  };
-  if (esAdmin) {
-    if (sucursal === "general") base.sucursalId = null;
-    else if (/^\d{1,9}$/.test(sucursal)) base.sucursalId = Number(sucursal);
-    if (categoria) base.concepto = { categoria };
-    if (conceptoId) base.conceptoId = conceptoId;
-    if (medio) base.medioPago = medio;
-  } else {
-    base.sucursalId = usuario.sucursalId;
-    base.medioPago = "EFECTIVO_CAJA";
-  }
-  const where: Prisma.GastoWhereInput = { ...base, ...(incluirAnulados ? {} : { anulado: false }) };
+  const { desde, hasta, sucursal, categoria, conceptoId, medio, incluirAnulados, base, where, filtrando } =
+    filtroDeGastos(usuario, parametros, hoy);
 
   const [gastos, cantidad, porConcepto, conceptos, sucursales, hayGastos] = await Promise.all([
     prisma.gasto.findMany({
@@ -146,20 +121,13 @@ export default async function GastosPage({ searchParams }: { searchParams: Param
   const total = [...porCategoria.values()].reduce((suma, v) => suma.plus(v), aDecimal(0));
   const paginas = Math.max(1, Math.ceil(cantidad / POR_PAGINA));
 
-  const filtrando =
-    Boolean(parametros.desde || parametros.hasta || sucursal || categoria || conceptoId || medio) ||
-    parametros.anulados === "1";
-
   function enlacePagina(destino: number): string {
-    const p = new URLSearchParams();
-    for (const clave of ["desde", "hasta", "sucursal", "categoria", "concepto", "medio", "anulados"]) {
-      const valor = parametros[clave];
-      if (valor) p.set(clave, valor);
-    }
-    if (destino > 1) p.set("pagina", String(destino));
-    const consulta = p.toString();
+    const consulta = consultaDeFiltro(parametros, destino > 1 ? { pagina: String(destino) } : {});
     return consulta ? `/gastos?${consulta}` : "/gastos";
   }
+  // Exporta las filas del filtro aplicado (el de la URL), sin paginar.
+  const consultaExportar = consultaDeFiltro(parametros);
+  const enlaceExportar = `/api/gastos/exportar${consultaExportar ? `?${consultaExportar}` : ""}`;
 
   const registrado = /^\d{1,9}$/.test(parametros.registrado ?? "") ? Number(parametros.registrado) : null;
 
@@ -314,6 +282,10 @@ export default async function GastosPage({ searchParams }: { searchParams: Param
             <p className="text-[12px] text-tinta-suave">
               {fecha(new Date(`${desde}T12:00:00.000Z`))} al {fecha(new Date(`${hasta}T12:00:00.000Z`))}
             </p>
+            {/* Un <a> y no un Link: es una descarga, no una navegación. */}
+            <a href={enlaceExportar} download className={`ml-auto ${clasesBoton("secundario", "sm")}`}>
+              Exportar CSV
+            </a>
           </Tarjeta>
 
           {gastos.length === 0 ? (

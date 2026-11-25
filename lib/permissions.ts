@@ -55,6 +55,22 @@ export const MODULOS: readonly Modulo[] = [
     icono: "gastos",
     oculto: true,
   },
+  {
+    href: "/gastos/resumen",
+    label: "Resumen de gastos",
+    roles: SOLO_ADMIN,
+    grupo: "Gestión",
+    icono: "gastos",
+    oculto: true,
+  },
+  {
+    href: "/gastos/fijos",
+    label: "Gastos fijos",
+    roles: SOLO_ADMIN,
+    grupo: "Gestión",
+    icono: "gastos",
+    oculto: true,
+  },
   { href: "/reportes", label: "Reportes", roles: SOLO_ADMIN, grupo: "Administración", icono: "reportes" },
   { href: "/usuarios", label: "Usuarios", roles: SOLO_ADMIN, grupo: "Administración", icono: "usuarios" },
 ];

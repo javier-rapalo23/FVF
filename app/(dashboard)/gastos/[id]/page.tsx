@@ -40,6 +40,7 @@ export default async function GastoPage({
       sucursal: { select: { nombre: true } },
       usuario: { select: { nombre: true } },
       anulacion: { include: { usuario: { select: { nombre: true } } } },
+      gastoFijo: { select: { id: true, descripcion: true } },
     },
   });
   // El empleado solo ve los gastos de caja de su sucursal.
@@ -111,6 +112,20 @@ export default async function GastoPage({
           <Dato etiqueta="N° de comprobante">
             {gasto.numeroComprobante ? <span className="cifras">{gasto.numeroComprobante}</span> : null}
           </Dato>
+          {gasto.gastoFijo ? (
+            <Dato etiqueta="Gasto fijo">
+              {esAdmin ? (
+                <Link
+                  href={`/gastos/fijos/${gasto.gastoFijo.id}`}
+                  className="underline-offset-2 hover:underline"
+                >
+                  {gasto.gastoFijo.descripcion}
+                </Link>
+              ) : (
+                gasto.gastoFijo.descripcion
+              )}
+            </Dato>
+          ) : null}
           <Dato etiqueta="Registrado">
             {gasto.usuario.nombre}{" "}
             <span className="cifras text-tinta-suave">· {formatoFechaHora(gasto.creadoEn)}</span>

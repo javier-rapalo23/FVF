@@ -2,7 +2,7 @@
 
 Sistema de punto de venta y gestión para verdulería / minimarket: venta minorista y mayorista, cuentas corrientes (fiado) con clientes, cuentas por pagar con proveedores y un modelo de datos preparado para múltiples sucursales.
 
-> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. Compras (Etapa 1): registro de compras de contado o a crédito que suben el stock, último costo por producto, saldo por pagar a proveedores y anulación. Inventario (Etapa 2): stock valorizado por sucursal con alertas de stock bajo, negativo y vencido, conteo físico (uno a uno o en lote), merma con motivo, stock mínimo por producto e historial de movimientos (kardex). Cierre de caja (Etapa 1): arqueo del efectivo por sucursal con conteo de billetes y monedas, conteo a ciegas para el empleado, fondo para el turno siguiente, bloqueo con ventas sin sincronizar y revisión del administrador. Gastos (Etapa 1): registro por concepto y medio de pago, el empleado registra los pagados con el efectivo de su caja, corrección y anulación del administrador, y los gastos de caja se descuentan del esperado en el cierre. Cuentas (abonos, pagos a proveedores) y reportes todavía no están.
+> **Estado**: base técnica, datos maestros y caja/ventas completa (Etapa 1 online y Etapa 2 sin conexión). Están armados el stack, el esquema de datos, la autenticación con roles, el routing con permisos, el ABM de categorías, productos, clientes, proveedores y usuarios, y la caja: venta de local y pedido con escaneo, cobro en efectivo, transferencia, tarjeta o fiado, descuento de stock, comprobante imprimible, ventas del día, anulación y venta sin conexión con sincronización automática. Compras (Etapa 1): registro de compras de contado o a crédito que suben el stock, último costo por producto, saldo por pagar a proveedores y anulación. Inventario (Etapa 2): stock valorizado por sucursal con alertas de stock bajo, negativo y vencido, conteo físico (uno a uno o en lote), merma con motivo, stock mínimo por producto e historial de movimientos (kardex). Cierre de caja (Etapa 1): arqueo del efectivo por sucursal con conteo de billetes y monedas, conteo a ciegas para el empleado, fondo para el turno siguiente, bloqueo con ventas sin sincronizar y revisión del administrador. Gastos (Etapa 1): registro por concepto y medio de pago, el empleado registra los pagados con el efectivo de su caja, corrección y anulación del administrador, y los gastos de caja se descuentan del esperado en el cierre. Gastos (Etapa 2): resumen mensual por categoría, concepto y sucursal comparado con el mes anterior, gastos fijos con aviso de los pendientes y atrasados del mes, y exportación del listado a CSV. Cuentas (abonos, pagos a proveedores) y reportes todavía no están.
 
 ---
 
@@ -134,12 +134,14 @@ app/
     compras/               solo ADMINISTRADOR (listado, nueva/, [id]/ con anulación)
     inventario/            solo ADMINISTRADOR (stock, conteo, merma; [productoId]/ = kardex)
     gastos/                ambos roles: el empleado registra gastos de caja de su sucursal;
-                           conceptos/, [id]/editar y la anulación son solo del ADMINISTRADOR
+                           resumen/, fijos/, conceptos/, [id]/editar y la anulación son solo
+                           del ADMINISTRADOR
     reportes/              solo ADMINISTRADOR
     usuarios/              solo ADMINISTRADOR
     layout.tsx             valida sesión + navegación según rol
   api/auth/[...nextauth]/  handlers de Auth.js
   api/sesion/cerrar/       cierra una sesión desactualizada respecto de la base
+  api/gastos/exportar/     CSV del listado de gastos con el filtro actual (valida la sesión)
   page.tsx                 redirige al módulo por defecto según el rol
 components/ui/             primitivas de interfaz (botón, campo, tabla, filtros, formulario…)
 lib/
@@ -148,6 +150,9 @@ lib/
   compras/                 registro, anulación y saldo de proveedores
   inventario/              ajustes de stock, listado valorizado, kardex y avisos de ventas offline
   cierres/                 cálculo, registro y revisión de cierres de caja
+  csv.ts                   CSV para Excel en español (separador `;` y BOM UTF-8)
+  gastos/                  registro, anulación, conceptos, gastos fijos y resumen
+                           (`resumen.ts` es la cuenta que va a usar Reportes)
   sucursal.ts              sucursal que muestra una pantalla de gestión
   ventas/                  registro, anulación, catálogo y saldo de clientes
   auth.ts                  Auth.js con el provider de credenciales (Node)
@@ -174,7 +179,7 @@ El schema completo está en [prisma/schema.prisma](prisma/schema.prisma). Entida
 
 - **Catálogo**: `Sucursal`, `Categoria`, `Proveedor`, `Producto`, `Stock` (stock por producto y sucursal).
 - **Personas**: `Usuario` (con rol y sucursal), `Cliente` (minorista/mayorista; `fiadoHabilitado` define si puede comprar fiado y `limiteCredito` el tope, vacío = sin tope).
-- **Operaciones**: `Venta` / `DetalleVenta`, `Compra` / `DetalleCompra`, `CierreCaja`, `Gasto`.
+- **Operaciones**: `Venta` / `DetalleVenta`, `Compra` / `DetalleCompra`, `CierreCaja`, `Gasto` / `GastoFijo`.
 - **Cuentas**: `MovimientoCuenta` (fiado de clientes) y `MovimientoProveedor` (cuentas por pagar: `CARGO` por compra a crédito, `PAGO`, y `ANULACION` al anular una compra a crédito).
 - **Costo**: `Producto.costoActual` es el costo unitario de la última compra (ISV incluido); `DetalleCompra` guarda la foto de cada compra.
 - **Inventario**: `AjusteStock` registra cada conteo (`CONTEO`, fija la cantidad real) y cada merma (`MERMA`, resta lo perdido) con el stock anterior y el resultante. `Producto.stockMinimo` dispara la alerta de stock bajo. No hay tabla de movimientos: el kardex se arma uniendo ventas, anulaciones, compras y ajustes, y su saldo se calcula hacia atrás desde la fila de `Stock`.
@@ -209,4 +214,4 @@ El service worker solo se registra en producción. Para probarlo en local: `npm 
 
 ## Próximos pasos
 
-El módulo de [Especificacion_Compras_Stock.md](Especificacion_Compras_Stock.md) está completo (compras e inventario). La Etapa 1 de [Especificacion_Gastos.md](Especificacion_Gastos.md) también: registro de gastos por concepto, anulación y gastos de caja descontados en el cierre. Siguen la Etapa 2 de gastos (resumen mensual y gastos fijos) y la Etapa 2 de [Especificacion_Cierre_Cuentas.md](Especificacion_Cierre_Cuentas.md): abonos de clientes y pagos a proveedores, integrados al cierre. Después, reportes.
+El módulo de [Especificacion_Compras_Stock.md](Especificacion_Compras_Stock.md) está completo (compras e inventario). [Especificacion_Gastos.md](Especificacion_Gastos.md) también: registro de gastos por concepto, anulación, gastos de caja descontados en el cierre, resumen mensual, gastos fijos y exportación a CSV. Sigue la Etapa 2 de [Especificacion_Cierre_Cuentas.md](Especificacion_Cierre_Cuentas.md): abonos de clientes y pagos a proveedores, integrados al cierre. Después, reportes.

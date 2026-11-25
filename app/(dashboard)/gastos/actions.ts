@@ -7,9 +7,11 @@ import { requerirUsuarioActivo, type UsuarioActivo } from "@/lib/acceso";
 import { leerFormulario, type EstadoFormulario } from "@/lib/formulario";
 import { anularGasto } from "@/lib/gastos/anular";
 import { guardarConcepto } from "@/lib/gastos/conceptos";
+import { guardarGastoFijo } from "@/lib/gastos/fijos";
 import { corregirGasto, registrarGasto } from "@/lib/gastos/registrar";
 import {
   CATEGORIAS_GASTO,
+  DIA_MAXIMO_GASTO_FIJO,
   ErrorGasto,
   MAXIMO_COMPROBANTE,
   MAXIMO_DESCRIPCION,
@@ -70,6 +72,7 @@ export async function registrarGastoAccion(
   const dia = f.textoOpcional("fecha", { max: 10 });
   const descripcion = f.texto("descripcion", { max: MAXIMO_DESCRIPCION });
   const numeroComprobante = f.textoOpcional("numeroComprobante", { max: MAXIMO_COMPROBANTE });
+  const gastoFijoId = f.idOpcional("gastoFijoId");
   if (!f.valido) return f.estado();
 
   let gastoId: number;
@@ -83,6 +86,7 @@ export async function registrarGastoAccion(
       dia,
       descripcion,
       numeroComprobante,
+      gastoFijoId,
     });
     gastoId = resultado.gastoId;
   } catch (error) {
@@ -173,4 +177,42 @@ export async function editarConceptoAccion(
   }
   revalidarGastos();
   return { error: null, errores: {}, exito: "Guardado." };
+}
+
+/** Alta (`id` null) o edición de un gasto fijo (sección 6.3). */
+export async function guardarGastoFijoAccion(
+  id: number | null,
+  _previo: EstadoFormulario,
+  formulario: FormData,
+): Promise<EstadoFormulario> {
+  const f = leerFormulario(formulario);
+  const conceptoId = f.id("conceptoId", "Elegí un concepto.");
+  const descripcion = f.texto("descripcion", { max: MAXIMO_DESCRIPCION });
+  const montoEstimado = f.monto("montoEstimado");
+  if (montoEstimado <= 0) f.fallar("montoEstimado", "Escribí un monto mayor que cero.");
+  const diaDelMes = f.entero("diaDelMes");
+  if (diaDelMes > DIA_MAXIMO_GASTO_FIJO) {
+    f.fallar("diaDelMes", `Elegí un día entre 1 y ${DIA_MAXIMO_GASTO_FIJO}.`);
+  }
+  const medioPago = f.opcion("medioPago", MEDIOS_GASTO);
+  const sucursalId = f.idOpcional("sucursalId");
+  const activo = id === null ? true : f.booleano("activo");
+  try {
+    await administrador();
+    if (!f.valido) return f.estado();
+    await guardarGastoFijo(id, {
+      conceptoId,
+      descripcion,
+      montoEstimado: montoEstimado.toFixed(2),
+      diaDelMes,
+      medioPago,
+      sucursalId,
+      activo,
+    });
+  } catch (error) {
+    return conError(f, error);
+  }
+
+  revalidarGastos();
+  redirect(`/gastos/fijos?guardado=${encodeURIComponent(descripcion)}`);
 }

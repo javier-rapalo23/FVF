@@ -347,6 +347,38 @@ async function main() {
       })
     ).id;
 
+  // Gastos fijos (Etapa 2): uno de la sucursal y uno general, ligado al recibo
+  // de luz de abajo para que el resumen muestre uno registrado.
+  const gastoFijo = async (datos: {
+    conceptoId: number;
+    descripcion: string;
+    montoEstimado: string;
+    diaDelMes: number;
+    medioPago: MedioPagoGasto;
+    sucursalId: number | null;
+  }) =>
+    (
+      (await prisma.gastoFijo.findFirst({ where: { descripcion: datos.descripcion }, select: { id: true } })) ??
+      (await prisma.gastoFijo.create({ data: datos, select: { id: true } }))
+    ).id;
+
+  await gastoFijo({
+    conceptoId: await concepto("Alquiler", CategoriaGasto.OPERATIVO),
+    descripcion: "Alquiler del local",
+    montoEstimado: "12000.00",
+    diaDelMes: 5,
+    medioPago: MedioPagoGasto.TRANSFERENCIA,
+    sucursalId: sucursal.id,
+  });
+  const fijoLuz = await gastoFijo({
+    conceptoId: await concepto("Energía eléctrica", CategoriaGasto.OPERATIVO),
+    descripcion: "Recibo de energía (ENEE)",
+    montoEstimado: "1800.00",
+    diaDelMes: 20,
+    medioPago: MedioPagoGasto.TRANSFERENCIA,
+    sucursalId: null,
+  });
+
   const gastos = [
     {
       // Gasto de caja de hoy: resta en el próximo cierre de la sucursal.
@@ -368,6 +400,7 @@ async function main() {
       descripcion: "Recibo ENEE del mes",
       sucursalId: null,
       fecha: mediodiaHace(5),
+      gastoFijoId: fijoLuz,
       anulacion: null,
     },
     {

@@ -30,6 +30,8 @@ export type DatosGasto = {
   dia: string | null;
   descripcion: string;
   numeroComprobante: string | null;
+  /** Gasto fijo del que se registra (Etapa 2). Solo administrador. */
+  gastoFijoId: number | null;
 };
 
 export type GastoRegistrado = { gastoId: number; yaRegistrado: boolean };
@@ -166,6 +168,28 @@ export async function registrarGasto(
     throw new ErrorGasto("CONCEPTO_INACTIVO", "Elegí un concepto activo.", "conceptoId");
   }
 
+  // Un gasto ligado a un fijo lo marca como registrado en el mes: tiene que
+  // ser de su mismo concepto, o el resumen daría por pagado algo que no lo está.
+  if (datos.gastoFijoId !== null) {
+    if (!esAdmin) {
+      throw new ErrorGasto("SIN_PERMISO", "Solo el administrador registra gastos fijos.");
+    }
+    const fijo = await prisma.gastoFijo.findUnique({
+      where: { id: datos.gastoFijoId },
+      select: { activo: true, conceptoId: true },
+    });
+    if (!fijo?.activo) {
+      throw new ErrorGasto("GASTO_FIJO_INVALIDO", "El gasto fijo no existe o está desactivado.");
+    }
+    if (fijo.conceptoId !== datos.conceptoId) {
+      throw new ErrorGasto(
+        "GASTO_FIJO_INVALIDO",
+        "El concepto tiene que ser el del gasto fijo.",
+        "conceptoId",
+      );
+    }
+  }
+
   try {
     const gasto = await prisma.gasto.create({
       data: {
@@ -178,6 +202,7 @@ export async function registrarGasto(
         numeroComprobante: comprobante,
         usuarioId: usuario.id,
         sucursalId,
+        gastoFijoId: datos.gastoFijoId,
       },
       select: { id: true },
     });
