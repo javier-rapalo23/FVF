@@ -28,6 +28,19 @@ import { registrarGastoAccion } from "../actions";
 export type ConceptoOpcion = { id: number; nombre: string; categoria: CategoriaGasto };
 type Sucursal = { id: number; nombre: string };
 
+/** Gasto fijo desde el que se registra (Etapa 2): carga sus datos en el formulario. */
+export type PlantillaFijo = {
+  id: number;
+  descripcion: string;
+  conceptoId: number;
+  montoEstimado: string;
+  medioPago: MedioPagoGasto;
+  sucursalId: number | null;
+  diaDelMes: number;
+  /** Gastos no anulados ya registrados desde este fijo en el mes. */
+  yaRegistrados: number;
+};
+
 export function FormularioGasto({
   claveIdempotencia,
   conceptos,
@@ -36,6 +49,8 @@ export function FormularioGasto({
   sucursales,
   esperados,
   hoy,
+  diaInicial = hoy,
+  fijo = null,
   diaMinimo,
 }: {
   claveIdempotencia: string;
@@ -51,6 +66,9 @@ export function FormularioGasto({
    */
   esperados: Readonly<Record<number, string>> | null;
   hoy: string;
+  /** Fecha que se propone para los gastos que no son de caja. */
+  diaInicial?: string;
+  fijo?: PlantillaFijo | null;
   diaMinimo: string;
 }) {
   const [estado, alEnviar, pendiente] = useFormulario(registrarGastoAccion, FORMULARIO_INICIAL);
@@ -58,12 +76,20 @@ export function FormularioGasto({
 
   // El empleado solo registra gastos de caja. El administrador elige el medio a
   // conciencia: un gasto de caja cambia el cierre, así que no hay valor por defecto.
-  const [medio, setMedio] = useState<MedioPagoGasto | "">(esAdmin ? "" : "EFECTIVO_CAJA");
-  const [conceptoId, setConceptoId] = useState("");
-  const [monto, setMonto] = useState("");
-  const [sucursalId, setSucursalId] = useState(
-    sucursalPropia ? String(sucursalPropia.id) : sucursales.length === 1 ? String(sucursales[0]!.id) : "",
+  // Desde un gasto fijo, su plantilla ya trae el medio elegido.
+  const [medio, setMedio] = useState<MedioPagoGasto | "">(
+    esAdmin ? (fijo?.medioPago ?? "") : "EFECTIVO_CAJA",
   );
+  const [conceptoId, setConceptoId] = useState(fijo ? String(fijo.conceptoId) : "");
+  const [monto, setMonto] = useState(fijo?.montoEstimado ?? "");
+  const [sucursalId, setSucursalId] = useState(() => {
+    // Un fijo trae su sucursal (o ninguna, si es general); la caja propia la fija igual.
+    if (fijo && !(fijo.medioPago === "EFECTIVO_CAJA" && sucursalPropia)) {
+      return fijo.sucursalId ? String(fijo.sucursalId) : "";
+    }
+    if (sucursalPropia) return String(sucursalPropia.id);
+    return sucursales.length === 1 ? String(sucursales[0]!.id) : "";
+  });
 
   const deCaja = medio === "EFECTIVO_CAJA";
   // Caja con sucursal propia: no se elige. Otro medio: el administrador elige (o ninguna).
@@ -88,11 +114,36 @@ export function FormularioGasto({
     <form onSubmit={alEnviar} noValidate className="max-w-4xl">
       <input type="hidden" name="claveIdempotencia" value={claveIdempotencia} />
       {esAdmin ? null : <input type="hidden" name="medioPago" value="EFECTIVO_CAJA" />}
+      {fijo ? <input type="hidden" name="gastoFijoId" value={fijo.id} /> : null}
 
       <div className="overflow-hidden rounded-xl border border-borde bg-superficie">
         {estado.error ? (
           <div className="px-5 pt-5">
             <AlertaFormulario mensaje={estado.error} />
+          </div>
+        ) : null}
+
+        {fijo ? (
+          <div className="space-y-2 px-5 pt-5">
+            <p className="flex items-start gap-2 rounded-md bg-info-fondo px-3 py-2.5 text-[13px] leading-snug text-info-tinta">
+              <span className="mt-px shrink-0">
+                <Icono nombre="reloj" tamano={15} />
+              </span>
+              <span>
+                Gasto fijo <span className="font-medium">«{fijo.descripcion}»</span>, se paga el día{" "}
+                <span className="cifras">{fijo.diaDelMes}</span> de cada mes. Revisá el monto: el
+                cargado es el estimado.
+              </span>
+            </p>
+            {fijo.yaRegistrados > 0 ? (
+              <p className="flex items-start gap-2 rounded-md bg-alerta-fondo px-3 py-2.5 text-[13px] leading-snug text-alerta-tinta">
+                <span className="mt-px shrink-0">
+                  <Icono nombre="alerta" tamano={15} />
+                </span>
+                Ya {fijo.yaRegistrados === 1 ? "hay un gasto registrado" : `hay ${fijo.yaRegistrados} gastos registrados`}{" "}
+                desde este gasto fijo en ese mes. Se puede guardar igual si es otro pago.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
@@ -167,6 +218,7 @@ export function FormularioGasto({
               name="descripcion"
               etiqueta="Descripción"
               placeholder="Ej.: Recibo ENEE octubre, flete de Comayagua"
+              defaultValue={fijo?.descripcion}
               maxLength={MAXIMO_DESCRIPCION}
               required
               error={errores.descripcion}
@@ -247,7 +299,7 @@ export function FormularioGasto({
               name="fecha"
               type="date"
               etiqueta="Fecha del pago"
-              defaultValue={hoy}
+              defaultValue={diaInicial}
               min={diaMinimo}
               max={hoy}
               error={errores.fecha}

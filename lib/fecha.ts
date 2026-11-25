@@ -136,3 +136,44 @@ export function formatoFechaHora(instante: Date): string {
 export function formatoDiaLargo(dia: string): string {
   return FECHA_LARGA.format(new Date(`${dia}T12:00:00.000Z`));
 }
+
+/*
+ * Meses (`YYYY-MM`), para los resúmenes mensuales.
+ */
+
+const PATRON_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+const MES_LARGO = new Intl.DateTimeFormat("es-HN", {
+  timeZone: "UTC",
+  month: "long",
+  year: "numeric",
+});
+
+export function esMesValido(mes: string): boolean {
+  return PATRON_MES.test(mes);
+}
+
+/** Mes del negocio (`YYYY-MM`) de un instante. */
+export function mesDelNegocio(instante: Date = new Date()): string {
+  return diaDelNegocio(instante).slice(0, 7);
+}
+
+/** Suma (o resta, con negativos) meses a un mes `YYYY-MM`. */
+export function sumarMeses(mes: string, meses: number): string {
+  const [anio, numero] = mes.split("-").map(Number) as [number, number];
+  return new Date(Date.UTC(anio, numero - 1 + meses, 1)).toISOString().slice(0, 7);
+}
+
+/** Primer y último día (`YYYY-MM-DD`) de un mes `YYYY-MM`. */
+export function diasDelMes(mes: string): { desde: string; hasta: string } {
+  if (!esMesValido(mes)) throw new Error(`Mes inválido: ${mes}`);
+  const [anio, numero] = mes.split("-").map(Number) as [number, number];
+  // El día 0 del mes siguiente es el último de este.
+  const ultimo = new Date(Date.UTC(anio, numero, 0)).toISOString().slice(0, 10);
+  return { desde: `${mes}-01`, hasta: ultimo };
+}
+
+/** "noviembre de 2026" a partir de un mes `YYYY-MM`. */
+export function formatoMes(mes: string): string {
+  return MES_LARGO.format(new Date(`${mes}-15T12:00:00.000Z`));
+}

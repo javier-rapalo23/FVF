@@ -37,6 +37,8 @@ export const MAXIMO_COMPROBANTE = 60;
 export const MAXIMO_NOMBRE_CONCEPTO = 60;
 export const MINIMO_MOTIVO_ANULACION = 5;
 export const MAXIMO_MOTIVO_ANULACION = 500;
+/** Un gasto fijo se paga entre el 1 y el 28: así existe en todos los meses. */
+export const DIA_MAXIMO_GASTO_FIJO = 28;
 
 export type CodigoErrorGasto =
   | "SIN_PERMISO"
@@ -49,7 +51,9 @@ export type CodigoErrorGasto =
   | "MOTIVO_INVALIDO"
   | "GASTO_NO_ENCONTRADO"
   | "YA_ANULADO"
-  | "CONCEPTO_DUPLICADO";
+  | "CONCEPTO_DUPLICADO"
+  | "GASTO_FIJO_INVALIDO"
+  | "DIA_DEL_MES_INVALIDO";
 
 /** Error de negocio con código estable y, si corresponde, el campo del formulario. */
 export class ErrorGasto extends Error {
@@ -72,3 +76,12 @@ export type EfectoAnulacion =
 export type ResultadoAnulacionGasto =
   | { ok: true; efecto: EfectoAnulacion }
   | { ok: false; codigo: CodigoErrorGasto; mensaje: string };
+
+/** Estado de un gasto fijo en un mes (sección 6.3). */
+export type EstadoGastoFijo = "REGISTRADO" | "PENDIENTE" | "ATRASADO";
+
+export const NOMBRE_ESTADO_FIJO: Record<EstadoGastoFijo, string> = {
+  REGISTRADO: "Registrado",
+  PENDIENTE: "Pendiente",
+  ATRASADO: "Atrasado",
+};

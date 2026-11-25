@@ -89,6 +89,7 @@ model Sucursal {
   compras      Compra[]
   cierresCaja  CierreCaja[]
   gastos       Gasto[]
+  gastosFijos  GastoFijo[]
   ajustesStock AjusteStock[]
 }
 
@@ -417,8 +418,9 @@ model ConceptoGasto {
   id        Int            @id @default(autoincrement())
   nombre    String         @unique
   categoria CategoriaGasto
-  activo    Boolean        @default(true)
-  gastos    Gasto[]
+  activo      Boolean        @default(true)
+  gastos      Gasto[]
+  gastosFijos GastoFijo[]
 }
 
 model Gasto {
@@ -443,11 +445,33 @@ model Gasto {
   /// Cierre que lo descontó del efectivo. Solo gastos de caja; nulo = pendiente.
   cierreCajaId      Int?
   cierreCaja        CierreCaja?     @relation(fields: [cierreCajaId], references: [id])
+  /// Gasto fijo del que salió (Etapa 2). Marca ese gasto fijo como registrado en el mes.
+  gastoFijoId       Int?
+  gastoFijo         GastoFijo?      @relation(fields: [gastoFijoId], references: [id])
   creadoEn          DateTime        @default(now())
 
   @@index([fecha])
   @@index([sucursalId, cierreCajaId])
   @@index([conceptoId])
+  @@index([gastoFijoId])
+}
+
+/// Recordatorio con plantilla de un gasto que se repite cada mes (alquiler,
+/// salarios, servicios). Nunca registra nada solo.
+model GastoFijo {
+  id            Int            @id @default(autoincrement())
+  conceptoId    Int
+  concepto      ConceptoGasto  @relation(fields: [conceptoId], references: [id])
+  descripcion   String
+  /// Monto de referencia: el real se escribe al registrar el gasto.
+  montoEstimado Decimal        @db.Decimal(10, 2)
+  /// Día del mes en que se suele pagar, de 1 a 28.
+  diaDelMes     Int
+  medioPago     MedioPagoGasto
+  sucursalId    Int?
+  sucursal      Sucursal?      @relation(fields: [sucursalId], references: [id])
+  activo        Boolean        @default(true)
+  gastos        Gasto[]
 }
 
 model AnulacionGasto {
