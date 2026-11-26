@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { clasesBoton } from "@/components/ui/boton";
 import { EncabezadoPagina, EstadoVacio, Volver } from "@/components/ui/pagina";
 import { requerirUsuarioActivo } from "@/lib/acceso";
-import { estadoCaja, totalesPendientes } from "@/lib/cierres/calcular";
+import { esperadosActuales } from "@/lib/cierres/calcular";
 import { DIAS_ATRAS_COMPRA } from "@/lib/config";
 import { diaDelNegocio, diasDelMes, sumarDias } from "@/lib/fecha";
 import { filtroDelPeriodo } from "@/lib/gastos/resumen";
@@ -116,25 +116,9 @@ export default async function NuevoGastoPage({ searchParams }: { searchParams: P
 
   // Efectivo que debería haber ahora en cada caja, para el aviso del
   // administrador. Nunca se calcula para el empleado (conteo a ciegas).
-  let esperados: Record<number, string> | null = null;
-  if (esAdmin) {
-    const cajas = sucursalPropia ? [sucursalPropia] : sucursales;
-    const valores = await Promise.all(
-      cajas.map(async (s) => {
-        const estado = await estadoCaja(prisma, s.id);
-        // Sin un cierre anterior no se conoce el fondo inicial: no se avisa.
-        if (!estado.cierreAnterior) return null;
-        const totales = await totalesPendientes(
-          prisma,
-          s.id,
-          estado.inicioCadena,
-          estado.cierreAnterior.fondoSiguiente,
-        );
-        return [s.id, totales.esperado] as const;
-      }),
-    );
-    esperados = Object.fromEntries(valores.filter((v) => v !== null));
-  }
+  const esperados = esAdmin
+    ? await esperadosActuales(prisma, (sucursalPropia ? [sucursalPropia] : sucursales).map((s) => s.id))
+    : null;
 
   return (
     <section>

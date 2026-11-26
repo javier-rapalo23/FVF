@@ -50,10 +50,17 @@ export async function estadoCaja(db: Db, sucursalId: number): Promise<EstadoCaja
 
 type PorMetodo = { metodoPago: MetodoPago; _sum: { total: Prisma.Decimal | null }; _count: { _all: number } }[];
 
+/** Movimientos de efectivo del cajón que no son ventas. */
+type Salidas = {
+  devoluciones: Prisma.Decimal | null;
+  gastos: Prisma.Decimal | null;
+  abonos: Prisma.Decimal | null;
+  pagosProveedor: Prisma.Decimal | null;
+};
+
 function armarTotales(
   porMetodo: PorMetodo,
-  devoluciones: Prisma.Decimal | null,
-  gastos: Prisma.Decimal | null,
+  { devoluciones, gastos, abonos, pagosProveedor }: Salidas,
   fondoInicial: Prisma.Decimal,
 ): TotalesCierre {
   const metodo = (m: MetodoPago) =>
@@ -61,6 +68,8 @@ function armarTotales(
   const efectivo = metodo("EFECTIVO");
   const devuelto = devoluciones ?? CERO;
   const gastado = gastos ?? CERO;
+  const abonado = abonos ?? CERO;
+  const pagado = pagosProveedor ?? CERO;
 
   return {
     fondoInicial: textoMonto(fondoInicial),
@@ -71,7 +80,11 @@ function armarTotales(
     ventasFiado: textoMonto(metodo("FIADO")),
     cantidadVentas: porMetodo.reduce((suma, p) => suma + p._count._all, 0),
     gastosCaja: textoMonto(gastado),
-    esperado: textoMonto(fondoInicial.plus(efectivo).minus(devuelto).minus(gastado)),
+    abonosEfectivo: textoMonto(abonado),
+    pagosProveedorCaja: textoMonto(pagado),
+    esperado: textoMonto(
+      fondoInicial.plus(efectivo).minus(devuelto).plus(abonado).minus(pagado).minus(gastado),
+    ),
   };
 }
 
@@ -88,6 +101,37 @@ export function filtroGastosPendientes(sucursalId: number, inicioCadena: Date): 
   };
 }
 
+/**
+ * Abonos de clientes cobrados en efectivo en la caja de la sucursal, todavía
+ * sin cierre. Mismo piso que las ventas.
+ */
+export function filtroAbonosPendientes(
+  sucursalId: number,
+  inicioCadena: Date,
+): Prisma.MovimientoCuentaWhereInput {
+  return {
+    tipo: "ABONO",
+    medioPago: "EFECTIVO",
+    sucursalId,
+    cierreCajaId: null,
+    fecha: { gte: inicioCadena },
+  };
+}
+
+/** Pagos a proveedores con el efectivo del cajón, todavía sin cierre. */
+export function filtroPagosProveedorPendientes(
+  sucursalId: number,
+  inicioCadena: Date,
+): Prisma.MovimientoProveedorWhereInput {
+  return {
+    tipo: "PAGO",
+    medioPago: "EFECTIVO_CAJA",
+    sucursalId,
+    cierreCajaId: null,
+    fecha: { gte: inicioCadena },
+  };
+}
+
 /** Lo que entraría en un cierre si se hiciera ahora. Solo lectura. */
 export async function totalesPendientes(
   db: Db,
@@ -95,7 +139,7 @@ export async function totalesPendientes(
   inicioCadena: Date,
   fondoInicial: Prisma.Decimal,
 ): Promise<TotalesCierre> {
-  const [porMetodo, devoluciones, gastos] = await Promise.all([
+  const [porMetodo, devoluciones, gastos, abonos, pagos] = await Promise.all([
     db.venta.groupBy({
       by: ["metodoPago"],
       where: { sucursalId, cierreCajaId: null, creadoEn: { gte: inicioCadena }, anulada: false },
@@ -116,8 +160,25 @@ export async function totalesPendientes(
       where: { ...filtroGastosPendientes(sucursalId, inicioCadena), anulado: false },
       _sum: { monto: true },
     }),
+    db.movimientoCuenta.aggregate({
+      where: filtroAbonosPendientes(sucursalId, inicioCadena),
+      _sum: { monto: true },
+    }),
+    db.movimientoProveedor.aggregate({
+      where: filtroPagosProveedorPendientes(sucursalId, inicioCadena),
+      _sum: { monto: true },
+    }),
   ]);
-  return armarTotales(porMetodo, devoluciones._sum.total, gastos._sum.monto, fondoInicial);
+  return armarTotales(
+    porMetodo,
+    {
+      devoluciones: devoluciones._sum.total,
+      gastos: gastos._sum.monto,
+      abonos: abonos._sum.monto,
+      pagosProveedor: pagos._sum.monto,
+    },
+    fondoInicial,
+  );
 }
 
 /** Importes de un cierre a partir de lo que ya tiene asignado. */
@@ -126,7 +187,7 @@ export async function totalesDeCierre(
   cierreId: number,
   fondoInicial: Prisma.Decimal,
 ): Promise<TotalesCierre> {
-  const [porMetodo, devoluciones, gastos] = await Promise.all([
+  const [porMetodo, devoluciones, gastos, abonos, pagos] = await Promise.all([
     db.venta.groupBy({
       by: ["metodoPago"],
       where: { cierreCajaId: cierreId, anulada: false },
@@ -148,6 +209,42 @@ export async function totalesDeCierre(
       where: { cierreCajaId: cierreId, anulado: false },
       _sum: { monto: true },
     }),
+    db.movimientoCuenta.aggregate({ where: { cierreCajaId: cierreId }, _sum: { monto: true } }),
+    db.movimientoProveedor.aggregate({ where: { cierreCajaId: cierreId }, _sum: { monto: true } }),
   ]);
-  return armarTotales(porMetodo, devoluciones._sum.total, gastos._sum.monto, fondoInicial);
+  return armarTotales(
+    porMetodo,
+    {
+      devoluciones: devoluciones._sum.total,
+      gastos: gastos._sum.monto,
+      abonos: abonos._sum.monto,
+      pagosProveedor: pagos._sum.monto,
+    },
+    fondoInicial,
+  );
+}
+
+/**
+ * Efectivo que debería haber ahora en la caja de cada sucursal, para avisar
+ * al administrador si una salida lo supera. Nunca se calcula para el empleado
+ * (conteo a ciegas). Sin un cierre anterior no se conoce el fondo: no se avisa.
+ */
+export async function esperadosActuales(
+  db: Db,
+  sucursalIds: readonly number[],
+): Promise<Record<number, string>> {
+  const valores = await Promise.all(
+    sucursalIds.map(async (id) => {
+      const estado = await estadoCaja(db, id);
+      if (!estado.cierreAnterior) return null;
+      const totales = await totalesPendientes(
+        db,
+        id,
+        estado.inicioCadena,
+        estado.cierreAnterior.fondoSiguiente,
+      );
+      return [id, totales.esperado] as const;
+    }),
+  );
+  return Object.fromEntries(valores.filter((v) => v !== null));
 }

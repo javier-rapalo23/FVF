@@ -31,6 +31,10 @@ export type ResumenPrevio = {
   efectivo: { ventasEfectivo: string; devolucionesEfectivo: string } | null;
   /** Gastos pagados con el efectivo del cajón. Los ve también el empleado: los registró él. */
   gastosCaja: { total: string; cantidad: number };
+  /** Abonos de clientes cobrados en efectivo: entraron al cajón. */
+  abonosEfectivo: { total: string; cantidad: number };
+  /** Pagos a proveedores con el efectivo del cajón: salieron de él. */
+  pagosProveedorCaja: { total: string; cantidad: number };
 };
 
 type Paso = "contar" | "confirmar" | "listo";
@@ -364,6 +368,20 @@ export function FormularioCierre({
                   signo="−"
                 />
               ) : null}
+              {aDecimal(previa.abonosEfectivo).gt(0) ? (
+                <FilaMonto
+                  etiqueta="Abonos de clientes en efectivo"
+                  valor={previa.abonosEfectivo}
+                  signo="+"
+                />
+              ) : null}
+              {aDecimal(previa.pagosProveedorCaja).gt(0) ? (
+                <FilaMonto
+                  etiqueta="Pagos a proveedores"
+                  valor={previa.pagosProveedorCaja}
+                  signo="−"
+                />
+              ) : null}
               {aDecimal(previa.gastosCaja).gt(0) ? (
                 <FilaMonto etiqueta="Gastos de caja" valor={previa.gastosCaja} signo="−" />
               ) : null}
@@ -449,7 +467,19 @@ export function FormularioCierre({
           <FilaMonto etiqueta="Transferencia" valor={resumen.ventasTransferencia} />
           <FilaMonto etiqueta="Tarjeta" valor={resumen.ventasTarjeta} />
           <FilaMonto etiqueta="Fiado" valor={resumen.ventasFiado} />
-          <div className="border-t border-borde pt-1.5">
+          <div className="space-y-1.5 border-t border-borde pt-1.5">
+            {resumen.abonosEfectivo.cantidad > 0 ? (
+              <FilaMonto
+                etiqueta={`Abonos en efectivo (${resumen.abonosEfectivo.cantidad})`}
+                valor={resumen.abonosEfectivo.total}
+              />
+            ) : null}
+            {resumen.pagosProveedorCaja.cantidad > 0 ? (
+              <FilaMonto
+                etiqueta={`Pagos a proveedores (${resumen.pagosProveedorCaja.cantidad})`}
+                valor={resumen.pagosProveedorCaja.total}
+              />
+            ) : null}
             <FilaMonto
               etiqueta={`Gastos de caja (${resumen.gastosCaja.cantidad})`}
               valor={resumen.gastosCaja.total}

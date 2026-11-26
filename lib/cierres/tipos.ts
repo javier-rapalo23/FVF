@@ -38,7 +38,14 @@ export type TotalesCierre = {
   cantidadVentas: number;
   /** Gastos pagados con el efectivo del cajón (no anulados). */
   gastosCaja: string;
-  /** fondoInicial + ventasEfectivo − devolucionesEfectivo − gastosCaja. */
+  /** Abonos de clientes cobrados en efectivo. */
+  abonosEfectivo: string;
+  /** Pagos a proveedores hechos con el efectivo del cajón. */
+  pagosProveedorCaja: string;
+  /**
+   * fondoInicial + ventasEfectivo − devolucionesEfectivo + abonosEfectivo
+   * − pagosProveedorCaja − gastosCaja.
+   */
   esperado: string;
 };
 

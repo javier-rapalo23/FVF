@@ -334,6 +334,23 @@ async function main() {
     });
   }
 
+  // Pago parcial por transferencia de la compra a crédito: deja saldo por
+  // pagar y no toca ningún cierre de caja.
+  const clavePago = "00000000-0000-4000-8000-000000000101";
+  if (!(await prisma.movimientoProveedor.findUnique({ where: { claveIdempotencia: clavePago } }))) {
+    await prisma.movimientoProveedor.create({
+      data: {
+        claveIdempotencia: clavePago,
+        proveedorId: proveedorCredito.id,
+        tipo: "PAGO",
+        monto: "300.00",
+        medioPago: "TRANSFERENCIA",
+        usuarioId: admin.id,
+        nota: "Pago parcial factura SJ-0457",
+      },
+    });
+  }
+
   // ---------------------------------------------------------------- Gastos
   // Los conceptos los carga la migración `gastos_etapa1`; el upsert solo cubre
   // una base armada sin migraciones.

@@ -8,9 +8,12 @@ import { Icono } from "@/components/ui/icono";
 import { AvisoGuardado, Dato, EncabezadoPagina, Tarjeta, Volver } from "@/components/ui/pagina";
 import { Celda, Fila, Tabla } from "@/components/ui/tabla";
 import { saldoDeProveedor } from "@/lib/compras/saldo";
+import { estadoCuentaProveedor } from "@/lib/cuentas/estado-cuenta";
 import { fecha, formatoMoneda, formatoRtn } from "@/lib/formato";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
+
+import { EstadoCuenta } from "../../_components/estado-cuenta";
 
 export const metadata: Metadata = {
   title: "Proveedor | Inversiones Ferrera",
@@ -30,8 +33,9 @@ export default async function ProveedorPage({
   const proveedor = await prisma.proveedor.findUnique({ where: { id } });
   if (!proveedor) notFound();
 
-  const [saldo, compras] = await Promise.all([
+  const [saldo, movimientos, compras] = await Promise.all([
     saldoDeProveedor(prisma, proveedor.id),
+    estadoCuentaProveedor(proveedor.id),
     prisma.compra.findMany({
       where: { proveedorId: proveedor.id },
       select: {
@@ -113,13 +117,31 @@ export default async function ProveedorPage({
             Compras a crédito menos pagos y anulaciones.
           </p>
         </div>
-        <Link
-          href={`/compras?proveedor=${proveedor.id}`}
-          className={clasesBoton("secundario", "sm")}
-        >
-          Ver todas sus compras
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/compras?proveedor=${proveedor.id}`}
+            className={clasesBoton("secundario", "sm")}
+          >
+            Ver todas sus compras
+          </Link>
+          {saldo.gt(0) ? (
+            <Link
+              href={`/proveedores/${proveedor.id}/pago`}
+              className={clasesBoton("primario", "sm")}
+            >
+              <Icono nombre="mas" tamano={15} />
+              Registrar pago
+            </Link>
+          ) : null}
+        </div>
       </Tarjeta>
+
+      <div className="mt-8 max-w-4xl">
+        <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.01em] text-tinta">
+          Estado de cuenta
+        </h2>
+        <EstadoCuenta filas={movimientos} cuenta="proveedor" />
+      </div>
 
       <div className="mt-8 max-w-4xl">
         <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.01em] text-tinta">

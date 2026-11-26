@@ -6,10 +6,13 @@ import { clasesBoton } from "@/components/ui/boton";
 import { Etiqueta } from "@/components/ui/etiqueta";
 import { Icono } from "@/components/ui/icono";
 import { AvisoGuardado, Dato, EncabezadoPagina, Tarjeta, Volver } from "@/components/ui/pagina";
+import { estadoCuentaCliente } from "@/lib/cuentas/estado-cuenta";
 import { formatoMoneda, formatoRtn } from "@/lib/formato";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 import { saldoDeCliente } from "@/lib/ventas/saldo";
+
+import { EstadoCuenta } from "../../_components/estado-cuenta";
 
 export const metadata: Metadata = {
   title: "Cliente | Inversiones Ferrera",
@@ -29,7 +32,10 @@ export default async function ClientePage({
   const cliente = await prisma.cliente.findUnique({ where: { id } });
   if (!cliente) notFound();
 
-  const saldo = await saldoDeCliente(prisma, cliente.id);
+  const [saldo, movimientos] = await Promise.all([
+    saldoDeCliente(prisma, cliente.id),
+    estadoCuentaCliente(cliente.id),
+  ]);
 
   return (
     <section>
@@ -91,7 +97,7 @@ export default async function ClientePage({
       </Tarjeta>
 
       <Tarjeta className="max-w-4xl px-5 py-4">
-        <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
+        <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-[1fr_1fr_auto] sm:items-start">
           <div>
             <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-tinta-suave">
               Saldo de la cuenta
@@ -112,8 +118,24 @@ export default async function ClientePage({
                 ? "Habilitado, sin tope"
                 : `Habilitado, hasta ${formatoMoneda(cliente.limiteCredito.toString())}`}
           </Dato>
+          {saldo.gt(0) ? (
+            <Link
+              href={`/caja/abonos/nuevo?cliente=${cliente.id}`}
+              className={clasesBoton("primario", "sm")}
+            >
+              <Icono nombre="mas" tamano={15} />
+              Registrar abono
+            </Link>
+          ) : null}
         </dl>
       </Tarjeta>
+
+      <div className="mt-8 max-w-4xl">
+        <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.01em] text-tinta">
+          Estado de cuenta
+        </h2>
+        <EstadoCuenta filas={movimientos} cuenta="cliente" />
+      </div>
     </section>
   );
 }
