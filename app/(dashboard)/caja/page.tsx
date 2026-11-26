@@ -5,7 +5,7 @@ import { Pestanas } from "@/components/ui/pagina";
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { prisma } from "@/lib/prisma";
 
-import { BotonGastoCaja } from "./_components/boton-gasto-caja";
+import { AtajoEnLinea } from "./_components/atajo-en-linea";
 import { PantallaCaja } from "./_components/pantalla-caja";
 import { PESTANAS_CAJA } from "./_components/pestanas";
 
@@ -31,7 +31,10 @@ export default async function CajaPage() {
         <div className="min-w-0 flex-1">
           <Pestanas items={PESTANAS_CAJA} activa="/caja" />
         </div>
-        <BotonGastoCaja />
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <AtajoEnLinea href="/caja/abonos/nuevo" icono="clientes" texto="Registrar abono" accion="un abono" />
+          <AtajoEnLinea href="/gastos/nuevo" icono="gastos" texto="Registrar gasto" accion="un gasto" />
+        </div>
       </div>
       <PantallaCaja
         usuario={{ id: usuario.id, rol: usuario.rol, nombre: usuario.nombre }}

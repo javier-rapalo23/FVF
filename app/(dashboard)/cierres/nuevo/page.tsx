@@ -5,7 +5,13 @@ import { EncabezadoPagina, EstadoVacio, Volver } from "@/components/ui/pagina";
 import { SelectorSucursal } from "@/components/ui/selector-sucursal";
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { aDecimal, textoMonto } from "@/lib/calculos";
-import { estadoCaja, filtroGastosPendientes, totalesPendientes } from "@/lib/cierres/calcular";
+import {
+  estadoCaja,
+  filtroAbonosPendientes,
+  filtroGastosPendientes,
+  filtroPagosProveedorPendientes,
+  totalesPendientes,
+} from "@/lib/cierres/calcular";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 import { sucursalDePantalla } from "@/lib/sucursal";
@@ -58,10 +64,16 @@ export default async function CerrarCajaPage({
 
   const estado = await estadoCaja(prisma, sucursal.id);
   const fondo = estado.cierreAnterior?.fondoSiguiente ?? null;
-  const [totales, cantidadGastos] = await Promise.all([
+  const [totales, cantidadGastos, cantidadAbonos, cantidadPagos] = await Promise.all([
     totalesPendientes(prisma, sucursal.id, estado.inicioCadena, fondo ?? aDecimal(0)),
     prisma.gasto.count({
       where: { ...filtroGastosPendientes(sucursal.id, estado.inicioCadena), anulado: false },
+    }),
+    prisma.movimientoCuenta.count({
+      where: filtroAbonosPendientes(sucursal.id, estado.inicioCadena),
+    }),
+    prisma.movimientoProveedor.count({
+      where: filtroPagosProveedorPendientes(sucursal.id, estado.inicioCadena),
     }),
   ]);
 
@@ -79,6 +91,8 @@ export default async function CerrarCajaPage({
         }
       : null,
     gastosCaja: { total: totales.gastosCaja, cantidad: cantidadGastos },
+    abonosEfectivo: { total: totales.abonosEfectivo, cantidad: cantidadAbonos },
+    pagosProveedorCaja: { total: totales.pagosProveedorCaja, cantidad: cantidadPagos },
   };
 
   return (

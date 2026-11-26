@@ -65,6 +65,25 @@ export default async function DetalleCierrePage({
         },
         orderBy: { id: "asc" },
       },
+      abonos: {
+        select: {
+          id: true,
+          monto: true,
+          fecha: true,
+          cliente: { select: { id: true, nombre: true } },
+        },
+        orderBy: { id: "asc" },
+      },
+      pagosProveedor: {
+        select: {
+          id: true,
+          monto: true,
+          fecha: true,
+          nota: true,
+          proveedor: { select: { id: true, nombre: true } },
+        },
+        orderBy: { id: "asc" },
+      },
       _count: { select: { ventas: true } },
     },
   });
@@ -131,6 +150,16 @@ export default async function DetalleCierrePage({
                   valor={cierre.devolucionesEfectivo}
                   signo="−"
                 />
+              ) : null}
+              {cierre.abonosEfectivo.gt(0) ? (
+                <Monto
+                  etiqueta="Abonos de clientes en efectivo"
+                  valor={cierre.abonosEfectivo}
+                  signo="+"
+                />
+              ) : null}
+              {cierre.pagosProveedorCaja.gt(0) ? (
+                <Monto etiqueta="Pagos a proveedores" valor={cierre.pagosProveedorCaja} signo="−" />
               ) : null}
               {cierre.gastosCaja.gt(0) ? (
                 <Monto etiqueta="Gastos de caja" valor={cierre.gastosCaja} signo="−" />
@@ -279,6 +308,87 @@ export default async function DetalleCierrePage({
                 <p className="px-5 py-3 text-[12px] text-tinta-suave">
                   Los anulados antes del cierre no restan. Uno anulado después no cambia este cierre.
                 </p>
+              </div>
+            </details>
+          ) : null}
+
+          {cierre.abonos.length > 0 ? (
+            <details className="rounded-xl border border-borde bg-superficie">
+              <summary className="cursor-pointer px-5 py-3 text-[13px] font-medium text-tinta">
+                Abonos en efectivo incluidos ({cierre.abonos.length})
+              </summary>
+              <div className="border-t border-borde">
+                <Tabla
+                  columnas={[
+                    { label: "N°" },
+                    { label: "Hora" },
+                    { label: "Cliente" },
+                    { label: "Monto", derecha: true },
+                  ]}
+                >
+                  {cierre.abonos.map((a) => (
+                    <Fila key={a.id}>
+                      <Celda className="cifras font-mono">
+                        <Link href={`/caja/abonos/${a.id}`} className="underline-offset-2 hover:underline">
+                          {a.id}
+                        </Link>
+                      </Celda>
+                      <Celda className="cifras whitespace-nowrap text-tinta-media">
+                        {formatoHora(a.fecha)}
+                      </Celda>
+                      <Celda>{a.cliente.nombre}</Celda>
+                      <Celda derecha className="cifras">
+                        {formatoMoneda(a.monto)}
+                      </Celda>
+                    </Fila>
+                  ))}
+                </Tabla>
+              </div>
+            </details>
+          ) : null}
+
+          {cierre.pagosProveedor.length > 0 ? (
+            <details className="rounded-xl border border-borde bg-superficie">
+              <summary className="cursor-pointer px-5 py-3 text-[13px] font-medium text-tinta">
+                Pagos a proveedores incluidos ({cierre.pagosProveedor.length})
+              </summary>
+              <div className="border-t border-borde">
+                <Tabla
+                  columnas={[
+                    { label: "N°" },
+                    { label: "Hora" },
+                    { label: "Proveedor" },
+                    { label: "Nota", ocultaMovil: true },
+                    { label: "Monto", derecha: true },
+                  ]}
+                >
+                  {cierre.pagosProveedor.map((p) => (
+                    <Fila key={p.id}>
+                      <Celda className="cifras font-mono text-tinta-media">{p.id}</Celda>
+                      <Celda className="cifras whitespace-nowrap text-tinta-media">
+                        {formatoHora(p.fecha)}
+                      </Celda>
+                      <Celda>
+                        {esAdmin ? (
+                          <Link
+                            href={`/proveedores/${p.proveedor.id}`}
+                            className="underline-offset-2 hover:underline"
+                          >
+                            {p.proveedor.nombre}
+                          </Link>
+                        ) : (
+                          p.proveedor.nombre
+                        )}
+                      </Celda>
+                      <Celda ocultaMovil className="text-tinta-media">
+                        {p.nota ?? "—"}
+                      </Celda>
+                      <Celda derecha className="cifras">
+                        {formatoMoneda(p.monto)}
+                      </Celda>
+                    </Fila>
+                  ))}
+                </Tabla>
               </div>
             </details>
           ) : null}

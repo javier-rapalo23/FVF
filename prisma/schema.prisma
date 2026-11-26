@@ -68,6 +68,20 @@ enum CategoriaGasto {
   ADMINISTRATIVO
 }
 
+/// Cómo pagó un cliente un abono a su cuenta. El efectivo entra al cajón de la sucursal.
+enum MedioAbono {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+}
+
+/// Cómo se le pagó a un proveedor. Solo `EFECTIVO_CAJA` sale del cajón de ventas.
+enum MedioPagoProveedor {
+  EFECTIVO_CAJA
+  EFECTIVO_FUERA_CAJA
+  TRANSFERENCIA
+}
+
 enum MedioPagoGasto {
   /// Sale del cajón de ventas de la sucursal: resta en el cierre de caja.
   EFECTIVO_CAJA
@@ -91,6 +105,9 @@ model Sucursal {
   gastos       Gasto[]
   gastosFijos  GastoFijo[]
   ajustesStock AjusteStock[]
+
+  abonos         MovimientoCuenta[]
+  pagosProveedor MovimientoProveedor[]
 }
 
 model Categoria {
@@ -170,10 +187,12 @@ model Usuario {
   gastos      Gasto[]
   anulaciones AnulacionVenta[]
 
-  cierresRevisados  CierreCaja[]      @relation("CierresRevisados")
+  cierresRevisados  CierreCaja[]          @relation("CierresRevisados")
   anulacionesCompra AnulacionCompra[]
   ajustesStock      AjusteStock[]
   anulacionesGasto  AnulacionGasto[]
+  abonos            MovimientoCuenta[]
+  pagosProveedor    MovimientoProveedor[]
 }
 
 model Cliente {
@@ -346,7 +365,22 @@ model MovimientoCuenta {
   monto     Decimal              @db.Decimal(10, 2)
   fecha     DateTime             @default(now())
 
+  // Solo abonos. Los cargos y anulaciones salen de la venta.
+  medioPago         MedioAbono?
+  usuarioId         Int?
+  usuario           Usuario?    @relation(fields: [usuarioId], references: [id])
+  /// Caja que recibió el abono. Obligatoria si se pagó en efectivo.
+  sucursalId        Int?
+  sucursal          Sucursal?   @relation(fields: [sucursalId], references: [id])
+  nota              String?
+  /// Generada al abrir el formulario: un doble envío no duplica el abono.
+  claveIdempotencia String?     @unique
+  /// Cierre que sumó el abono al efectivo. Solo abonos en efectivo; nulo = pendiente.
+  cierreCajaId      Int?
+  cierreCaja        CierreCaja? @relation(fields: [cierreCajaId], references: [id])
+
   @@index([clienteId])
+  @@index([sucursalId, cierreCajaId])
 }
 
 model MovimientoProveedor {
@@ -359,7 +393,22 @@ model MovimientoProveedor {
   monto       Decimal                 @db.Decimal(10, 2)
   fecha       DateTime                @default(now())
 
+  // Solo pagos. Los cargos y anulaciones salen de la compra.
+  medioPago         MedioPagoProveedor?
+  usuarioId         Int?
+  usuario           Usuario?            @relation(fields: [usuarioId], references: [id])
+  /// Caja de la que salió el efectivo. Solo pagos con efectivo de caja.
+  sucursalId        Int?
+  sucursal          Sucursal?           @relation(fields: [sucursalId], references: [id])
+  nota              String?
+  /// Generada al abrir el formulario: un doble envío no duplica el pago.
+  claveIdempotencia String?             @unique
+  /// Cierre que descontó el pago del efectivo. Solo pagos de caja; nulo = pendiente.
+  cierreCajaId      Int?
+  cierreCaja        CierreCaja?         @relation(fields: [cierreCajaId], references: [id])
+
   @@index([proveedorId])
+  @@index([sucursalId, cierreCajaId])
 }
 
 /// Arqueo de la caja de una sucursal. Cada cierre se queda con las ventas y
@@ -405,19 +454,25 @@ model CierreCaja {
   notaRevision         String?
   /// Gastos pagados con el efectivo del cajón en este período.
   gastosCaja           Decimal     @default(0) @db.Decimal(10, 2)
+  /// Abonos de clientes cobrados en efectivo en este período.
+  abonosEfectivo       Decimal     @default(0) @db.Decimal(10, 2)
+  /// Pagos a proveedores hechos con el efectivo del cajón en este período.
+  pagosProveedorCaja   Decimal     @default(0) @db.Decimal(10, 2)
 
   ventas           Venta[]
   anulacionesVenta AnulacionVenta[]
   gastos           Gasto[]
+  abonos           MovimientoCuenta[]
+  pagosProveedor   MovimientoProveedor[]
 
   @@index([sucursalId, fecha])
 }
 
 /// Concepto de gasto (Alquiler, Fletes…). La categoría del gasto sale de acá.
 model ConceptoGasto {
-  id        Int            @id @default(autoincrement())
-  nombre    String         @unique
-  categoria CategoriaGasto
+  id          Int            @id @default(autoincrement())
+  nombre      String         @unique
+  categoria   CategoriaGasto
   activo      Boolean        @default(true)
   gastos      Gasto[]
   gastosFijos GastoFijo[]

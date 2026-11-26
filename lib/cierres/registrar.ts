@@ -7,7 +7,9 @@ import { prisma } from "@/lib/prisma";
 
 import {
   estadoCaja,
+  filtroAbonosPendientes,
   filtroGastosPendientes,
+  filtroPagosProveedorPendientes,
   totalesDeCierre,
   totalesPendientes,
 } from "./calcular";
@@ -168,6 +170,8 @@ function resultado(
     ventasFiado: Prisma.Decimal;
     cantidadVentas: number;
     gastosCaja: Prisma.Decimal;
+    abonosEfectivo: Prisma.Decimal;
+    pagosProveedorCaja: Prisma.Decimal;
     totalSistema: Prisma.Decimal;
     totalContado: Prisma.Decimal;
     diferencia: Prisma.Decimal;
@@ -188,6 +192,8 @@ function resultado(
       ventasFiado: textoMonto(cierre.ventasFiado),
       cantidadVentas: cierre.cantidadVentas,
       gastosCaja: textoMonto(cierre.gastosCaja),
+      abonosEfectivo: textoMonto(cierre.abonosEfectivo),
+      pagosProveedorCaja: textoMonto(cierre.pagosProveedorCaja),
       esperado: textoMonto(cierre.totalSistema),
     },
     totalContado: textoMonto(cierre.totalContado),
@@ -207,6 +213,8 @@ const SELECCION_RESULTADO = {
   ventasFiado: true,
   cantidadVentas: true,
   gastosCaja: true,
+  abonosEfectivo: true,
+  pagosProveedorCaja: true,
   totalSistema: true,
   totalContado: true,
   diferencia: true,
@@ -250,7 +258,8 @@ export async function vistaPreviaCierre(
  * Registra el cierre. En una transacción:
  * 1. bloquea la fila de la sucursal: los cierres de una sucursal se hacen de a
  *    uno, y se comprueba que el anterior sea el que vio la pantalla;
- * 2. crea el cierre y le asigna las ventas y anulaciones sin cierre;
+ * 2. crea el cierre y le asigna las ventas, anulaciones, gastos de caja,
+ *    abonos en efectivo y pagos a proveedores de caja sin cierre;
  * 3. calcula los importes sobre lo asignado (no sobre un rango de horas: lo
  *    que se registre en paralelo queda para el cierre siguiente) y los guarda.
  */
@@ -336,6 +345,15 @@ export async function registrarCierre(usuario: UsuarioActivo, crudo: unknown): P
         where: filtroGastosPendientes(sucursal.id, estado.inicioCadena),
         data: { cierreCajaId: cierre.id },
       });
+      // Abonos cobrados y pagos a proveedores con el efectivo del cajón.
+      await tx.movimientoCuenta.updateMany({
+        where: filtroAbonosPendientes(sucursal.id, estado.inicioCadena),
+        data: { cierreCajaId: cierre.id },
+      });
+      await tx.movimientoProveedor.updateMany({
+        where: filtroPagosProveedorPendientes(sucursal.id, estado.inicioCadena),
+        data: { cierreCajaId: cierre.id },
+      });
 
       const totales: TotalesCierre = await totalesDeCierre(tx, cierre.id, fondoInicial);
       const esperado = aDecimal(totales.esperado);
@@ -357,6 +375,8 @@ export async function registrarCierre(usuario: UsuarioActivo, crudo: unknown): P
           ventasFiado: totales.ventasFiado,
           cantidadVentas: totales.cantidadVentas,
           gastosCaja: totales.gastosCaja,
+          abonosEfectivo: totales.abonosEfectivo,
+          pagosProveedorCaja: totales.pagosProveedorCaja,
           totalSistema: esperado,
           diferencia,
         },
