@@ -14,6 +14,7 @@ export type DatosComprobanteAbono = {
   /** Lo que quedó debiendo después de este abono. */
   saldoPendiente: string;
   nota: string | null;
+  anulado: boolean;
 };
 
 /** Comprobante interno de un abono, para papel de 80 mm, igual que el de venta. */
@@ -24,6 +25,7 @@ export function ComprobanteAbono({ abono }: { abono: DatosComprobanteAbono }) {
         <p className="text-[14px] font-bold uppercase">{NOMBRE_NEGOCIO}</p>
         {abono.sucursal ? <p>{abono.sucursal}</p> : null}
         <p className="mt-1 font-bold">ABONO A CUENTA</p>
+        {abono.anulado ? <p className="mt-1 text-[14px] font-bold">*** ANULADO ***</p> : null}
       </header>
 
       <div className="my-3 border-t border-dashed border-black" />

@@ -5,19 +5,29 @@ import { Celda, Fila, Tabla } from "@/components/ui/tabla";
 import type { FilaEstadoCuenta } from "@/lib/cuentas/tipos";
 import { fecha, formatoMoneda } from "@/lib/formato";
 
+import { anularAbonoAccion } from "../caja/abonos/actions";
+import { anularPagoAccion } from "../proveedores/[id]/pago/actions";
+import { AnularMovimiento } from "./anular-movimiento";
+
 /** Tope de filas en pantalla. El saldo acumulado se calcula igual sobre todas. */
 const FILAS_VISIBLES = 100;
 
 /**
  * Estado de cuenta de un cliente (fiado) o de un proveedor: movimientos del
- * más reciente al más viejo, con el saldo que dejó cada uno.
+ * más reciente al más viejo, con el saldo que dejó cada uno. El administrador
+ * puede anular abonos y pagos desde su fila.
  */
 export function EstadoCuenta({
   filas,
   cuenta,
+  cuentaId,
+  puedeAnular,
 }: {
   filas: readonly FilaEstadoCuenta[];
   cuenta: "cliente" | "proveedor";
+  /** Id del cliente o del proveedor. */
+  cuentaId: number;
+  puedeAnular: boolean;
 }) {
   const esCliente = cuenta === "cliente";
 
@@ -42,20 +52,33 @@ export function EstadoCuenta({
           { label: "Detalle", ocultaMovil: true },
           { label: "Importe", derecha: true },
           { label: "Saldo", derecha: true },
+          ...(puedeAnular ? [{ label: "Acciones", derecha: true }] : []),
         ]}
       >
         {visibles.map((f) => (
-          <Fila key={f.id}>
+          <Fila key={f.id} atenuada={f.anulacion !== null}>
             <Celda className="cifras whitespace-nowrap text-tinta-media">{fecha(f.fecha)}</Celda>
             <Celda>
               <Movimiento fila={f} esCliente={esCliente} />
             </Celda>
             <Celda ocultaMovil className="text-tinta-media">
               {[f.medio, f.usuario, f.nota].filter(Boolean).join(" · ") || "—"}
+              {f.anulacion ? (
+                <span className="mt-0.5 block text-[12px] text-peligro-tinta">
+                  Anulado el {fecha(f.anulacion.fecha)}
+                  {f.anulacion.usuario ? ` por ${f.anulacion.usuario}` : ""}: {f.anulacion.motivo}
+                </span>
+              ) : null}
             </Celda>
             <Celda
               derecha
-              className={`cifras whitespace-nowrap ${f.importe.startsWith("-") ? "text-exito-tinta" : ""}`}
+              className={`cifras whitespace-nowrap ${
+                f.anulacion
+                  ? "text-tinta-suave line-through"
+                  : f.importe.startsWith("-")
+                    ? "text-exito-tinta"
+                    : ""
+              }`}
             >
               {f.importe.startsWith("-") ? "− " : "+ "}
               {formatoMoneda(f.importe.replace("-", ""))}
@@ -63,6 +86,24 @@ export function EstadoCuenta({
             <Celda derecha className="cifras whitespace-nowrap font-medium">
               {formatoMoneda(f.saldo)}
             </Celda>
+            {puedeAnular ? (
+              <Celda derecha>
+                {f.efectoAnulacion ? (
+                  <AnularMovimiento
+                    compacto
+                    movimiento={esCliente ? "abono" : "pago"}
+                    id={f.id}
+                    monto={f.importe.replace("-", "")}
+                    efecto={f.efectoAnulacion}
+                    accion={
+                      esCliente
+                        ? anularAbonoAccion.bind(null, f.id)
+                        : anularPagoAccion.bind(null, cuentaId, f.id)
+                    }
+                  />
+                ) : null}
+              </Celda>
+            ) : null}
           </Fila>
         ))}
       </Tabla>
@@ -99,7 +140,11 @@ function Movimiento({ fila, esCliente }: { fila: FilaEstadoCuenta; esCliente: bo
     case "ABONO":
       return (
         <span className="flex flex-wrap items-center gap-1.5">
-          <Etiqueta tono="exito">Abono</Etiqueta>
+          {fila.anulacion ? (
+            <Etiqueta tono="neutro">Abono anulado</Etiqueta>
+          ) : (
+            <Etiqueta tono="exito">Abono</Etiqueta>
+          )}
           <Link
             href={`/caja/abonos/${fila.id}`}
             className="cifras text-[12px] text-tinta-media underline-offset-2 hover:underline"
@@ -109,6 +154,10 @@ function Movimiento({ fila, esCliente }: { fila: FilaEstadoCuenta; esCliente: bo
         </span>
       );
     case "PAGO":
-      return <Etiqueta tono="exito">Pago</Etiqueta>;
+      return fila.anulacion ? (
+        <Etiqueta tono="neutro">Pago anulado</Etiqueta>
+      ) : (
+        <Etiqueta tono="exito">Pago</Etiqueta>
+      );
   }
 }

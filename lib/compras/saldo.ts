@@ -6,7 +6,8 @@ import { aDecimal, type ValorDecimal } from "@/lib/calculos";
  * Saldo de la cuenta de un proveedor: lo que se le debe.
  *
  * `CARGO` (compra a crédito) suma; `PAGO` (dinero entregado) y `ANULACION`
- * (reversa de una compra anulada) restan.
+ * (reversa de una compra anulada) restan. Un pago anulado no cuenta: lo filtra
+ * la consulta.
  */
 export function calcularSaldoProveedor(
   movimientos: readonly { tipo: TipoMovimientoProveedor; monto: ValorDecimal | null }[],
@@ -29,7 +30,7 @@ export async function saldosDeProveedores(
 ): Promise<Map<number, Prisma.Decimal>> {
   const sumas = await db.movimientoProveedor.groupBy({
     by: ["proveedorId", "tipo"],
-    where: proveedorIds ? { proveedorId: { in: [...proveedorIds] } } : undefined,
+    where: { anulado: false, ...(proveedorIds ? { proveedorId: { in: [...proveedorIds] } } : {}) },
     _sum: { monto: true },
   });
 
