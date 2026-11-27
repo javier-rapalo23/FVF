@@ -70,10 +70,10 @@ export default async function CerrarCajaPage({
       where: { ...filtroGastosPendientes(sucursal.id, estado.inicioCadena), anulado: false },
     }),
     prisma.movimientoCuenta.count({
-      where: filtroAbonosPendientes(sucursal.id, estado.inicioCadena),
+      where: { ...filtroAbonosPendientes(sucursal.id, estado.inicioCadena), anulado: false },
     }),
     prisma.movimientoProveedor.count({
-      where: filtroPagosProveedorPendientes(sucursal.id, estado.inicioCadena),
+      where: { ...filtroPagosProveedorPendientes(sucursal.id, estado.inicioCadena), anulado: false },
     }),
   ]);
 

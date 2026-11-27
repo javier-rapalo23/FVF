@@ -191,8 +191,10 @@ model Usuario {
   anulacionesCompra AnulacionCompra[]
   ajustesStock      AjusteStock[]
   anulacionesGasto  AnulacionGasto[]
-  abonos            MovimientoCuenta[]
-  pagosProveedor    MovimientoProveedor[]
+  abonos            MovimientoCuenta[]    @relation("AbonosRegistrados")
+  pagosProveedor    MovimientoProveedor[] @relation("PagosRegistrados")
+  abonosAnulados    MovimientoCuenta[]    @relation("AbonosAnulados")
+  pagosAnulados     MovimientoProveedor[] @relation("PagosAnulados")
 }
 
 model Cliente {
@@ -368,7 +370,7 @@ model MovimientoCuenta {
   // Solo abonos. Los cargos y anulaciones salen de la venta.
   medioPago         MedioAbono?
   usuarioId         Int?
-  usuario           Usuario?    @relation(fields: [usuarioId], references: [id])
+  usuario           Usuario?    @relation("AbonosRegistrados", fields: [usuarioId], references: [id])
   /// Caja que recibió el abono. Obligatoria si se pagó en efectivo.
   sucursalId        Int?
   sucursal          Sucursal?   @relation(fields: [sucursalId], references: [id])
@@ -378,6 +380,12 @@ model MovimientoCuenta {
   /// Cierre que sumó el abono al efectivo. Solo abonos en efectivo; nulo = pendiente.
   cierreCajaId      Int?
   cierreCaja        CierreCaja? @relation(fields: [cierreCajaId], references: [id])
+  /// Abono anulado: no resta del saldo ni suma en ningún cierre posterior a la anulación.
+  anulado           Boolean     @default(false)
+  anuladoEn         DateTime?
+  anuladoPorId      Int?
+  anuladoPor        Usuario?    @relation("AbonosAnulados", fields: [anuladoPorId], references: [id])
+  motivoAnulacion   String?
 
   @@index([clienteId])
   @@index([sucursalId, cierreCajaId])
@@ -396,7 +404,7 @@ model MovimientoProveedor {
   // Solo pagos. Los cargos y anulaciones salen de la compra.
   medioPago         MedioPagoProveedor?
   usuarioId         Int?
-  usuario           Usuario?            @relation(fields: [usuarioId], references: [id])
+  usuario           Usuario?            @relation("PagosRegistrados", fields: [usuarioId], references: [id])
   /// Caja de la que salió el efectivo. Solo pagos con efectivo de caja.
   sucursalId        Int?
   sucursal          Sucursal?           @relation(fields: [sucursalId], references: [id])
@@ -406,6 +414,12 @@ model MovimientoProveedor {
   /// Cierre que descontó el pago del efectivo. Solo pagos de caja; nulo = pendiente.
   cierreCajaId      Int?
   cierreCaja        CierreCaja?         @relation(fields: [cierreCajaId], references: [id])
+  /// Pago anulado: no resta del saldo ni sale de ningún cierre posterior a la anulación.
+  anulado           Boolean             @default(false)
+  anuladoEn         DateTime?
+  anuladoPorId      Int?
+  anuladoPor        Usuario?            @relation("PagosAnulados", fields: [anuladoPorId], references: [id])
+  motivoAnulacion   String?
 
   @@index([proveedorId])
   @@index([sucursalId, cierreCajaId])

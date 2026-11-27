@@ -3,12 +3,14 @@ import { Prisma } from "@prisma/client";
 import { textoMonto } from "@/lib/calculos";
 import { prisma } from "@/lib/prisma";
 
+import { efectoAnulacion } from "./anular";
 import { NOMBRE_MEDIO_ABONO, NOMBRE_MEDIO_PAGO_PROVEEDOR, type FilaEstadoCuenta } from "./tipos";
 
 /*
  * Estado de cuenta: los movimientos en orden, con el saldo que dejó cada uno.
  * El saldo acumulado se calcula sobre todos los movimientos; la pantalla
- * muestra los más recientes primero.
+ * muestra los más recientes primero. Un abono o pago anulado sigue en la
+ * lista, con su motivo, pero no mueve el saldo.
  */
 
 const CERO = new Prisma.Decimal(0);
@@ -25,7 +27,12 @@ export async function estadoCuentaCliente(clienteId: number): Promise<FilaEstado
       ventaId: true,
       medioPago: true,
       nota: true,
+      cierreCajaId: true,
+      anulado: true,
+      anuladoEn: true,
+      motivoAnulacion: true,
       usuario: { select: { nombre: true } },
+      anuladoPor: { select: { nombre: true } },
     },
     orderBy: [{ fecha: "asc" }, { id: "asc" }],
   });
@@ -33,7 +40,7 @@ export async function estadoCuentaCliente(clienteId: number): Promise<FilaEstado
   let saldo = CERO;
   return movimientos.map((m) => {
     const importe = m.tipo === "CARGO" ? m.monto : m.monto.neg();
-    saldo = saldo.plus(importe);
+    if (!m.anulado) saldo = saldo.plus(importe);
     return {
       id: m.id,
       fecha: m.fecha,
@@ -44,6 +51,17 @@ export async function estadoCuentaCliente(clienteId: number): Promise<FilaEstado
       nota: m.nota,
       importe: textoMonto(importe),
       saldo: textoMonto(saldo),
+      anulacion: m.anulado
+        ? {
+            fecha: m.anuladoEn ?? m.fecha,
+            usuario: m.anuladoPor?.nombre ?? null,
+            motivo: m.motivoAnulacion ?? "",
+          }
+        : null,
+      efectoAnulacion:
+        m.tipo === "ABONO" && !m.anulado
+          ? efectoAnulacion(m.medioPago === "EFECTIVO", m.cierreCajaId)
+          : null,
     };
   });
 }
@@ -60,7 +78,12 @@ export async function estadoCuentaProveedor(proveedorId: number): Promise<FilaEs
       compraId: true,
       medioPago: true,
       nota: true,
+      cierreCajaId: true,
+      anulado: true,
+      anuladoEn: true,
+      motivoAnulacion: true,
       usuario: { select: { nombre: true } },
+      anuladoPor: { select: { nombre: true } },
     },
     orderBy: [{ fecha: "asc" }, { id: "asc" }],
   });
@@ -68,7 +91,7 @@ export async function estadoCuentaProveedor(proveedorId: number): Promise<FilaEs
   let saldo = CERO;
   return movimientos.map((m) => {
     const importe = m.tipo === "CARGO" ? m.monto : m.monto.neg();
-    saldo = saldo.plus(importe);
+    if (!m.anulado) saldo = saldo.plus(importe);
     return {
       id: m.id,
       fecha: m.fecha,
@@ -79,6 +102,17 @@ export async function estadoCuentaProveedor(proveedorId: number): Promise<FilaEs
       nota: m.nota,
       importe: textoMonto(importe),
       saldo: textoMonto(saldo),
+      anulacion: m.anulado
+        ? {
+            fecha: m.anuladoEn ?? m.fecha,
+            usuario: m.anuladoPor?.nombre ?? null,
+            motivo: m.motivoAnulacion ?? "",
+          }
+        : null,
+      efectoAnulacion:
+        m.tipo === "PAGO" && !m.anulado
+          ? efectoAnulacion(m.medioPago === "EFECTIVO_CAJA", m.cierreCajaId)
+          : null,
     };
   });
 }

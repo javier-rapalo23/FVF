@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { registrarAbono } from "@/lib/cuentas/abonos";
-import { ErrorCuenta, MAXIMO_NOTA_CUENTA, MEDIOS_ABONO } from "@/lib/cuentas/tipos";
+import { anularAbono } from "@/lib/cuentas/anular";
+import {
+  ErrorCuenta,
+  MAXIMO_NOTA_CUENTA,
+  MEDIOS_ABONO,
+  type ResultadoAnulacionCuenta,
+} from "@/lib/cuentas/tipos";
 import { leerFormulario, type EstadoFormulario } from "@/lib/formulario";
 
 /**
@@ -53,4 +59,30 @@ export async function registrarAbonoAccion(
   revalidatePath("/clientes", "layout");
   revalidatePath("/cierres", "layout");
   redirect(`/caja/abonos/${abonoId}?imprimir=1`);
+}
+
+/** Anulación de un abono. Solo administrador: lo valida `lib/cuentas/anular`. Se usa con `.bind`. */
+export async function anularAbonoAccion(
+  abonoId: number,
+  motivo: string,
+): Promise<ResultadoAnulacionCuenta> {
+  const usuario = await requerirUsuarioActivo();
+  if (!usuario) {
+    return { ok: false, codigo: "SIN_PERMISO", mensaje: "Tu sesión venció. Volvé a iniciar sesión." };
+  }
+  try {
+    if (!Number.isInteger(abonoId) || abonoId <= 0) {
+      throw new ErrorCuenta("ABONO_NO_ENCONTRADO", "El abono no existe.");
+    }
+    const efecto = await anularAbono(usuario, abonoId, motivo);
+    revalidatePath("/clientes", "layout");
+    revalidatePath("/caja/abonos", "layout");
+    revalidatePath("/cierres", "layout");
+    return { ok: true, efecto };
+  } catch (error) {
+    if (error instanceof ErrorCuenta) {
+      return { ok: false, codigo: error.codigo, mensaje: error.message };
+    }
+    throw error;
+  }
 }

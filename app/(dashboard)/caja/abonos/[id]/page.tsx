@@ -3,17 +3,21 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { clasesBoton } from "@/components/ui/boton";
+import { Icono } from "@/components/ui/icono";
 import { Tarjeta, Volver } from "@/components/ui/pagina";
 import { requerirUsuarioActivo } from "@/lib/acceso";
 import { textoMonto } from "@/lib/calculos";
+import { efectoAnulacion } from "@/lib/cuentas/anular";
 import { saldoDespuesDeAbono } from "@/lib/cuentas/estado-cuenta";
 import { NOMBRE_MEDIO_ABONO } from "@/lib/cuentas/tipos";
 import { formatoFechaHora } from "@/lib/fecha";
 import { leerParametros, type ParametrosBusqueda } from "@/lib/listados";
 import { prisma } from "@/lib/prisma";
 
+import { AnularMovimiento } from "../../../_components/anular-movimiento";
 import { BotonImprimir } from "../../_components/acciones-venta";
 import { ComprobanteAbono } from "../../_components/comprobante-abono";
+import { anularAbonoAccion } from "../actions";
 
 export const metadata: Metadata = { title: "Abono | Inversiones Ferrera" };
 
@@ -43,8 +47,12 @@ export default async function AbonoPage({
       clienteId: true,
       sucursalId: true,
       cierreCajaId: true,
+      anulado: true,
+      anuladoEn: true,
+      motivoAnulacion: true,
       cliente: { select: { nombre: true } },
       usuario: { select: { nombre: true } },
+      anuladoPor: { select: { nombre: true } },
       sucursal: { select: { nombre: true } },
     },
   });
@@ -79,9 +87,31 @@ export default async function AbonoPage({
             <Link href="/caja/abonos/nuevo" className={clasesBoton("secundario")}>
               Registrar otro
             </Link>
-            <BotonImprimir automatico={imprimir === "1"} />
+            {esAdmin && !abono.anulado ? (
+              <AnularMovimiento
+                movimiento="abono"
+                id={abono.id}
+                monto={textoMonto(abono.monto)}
+                efecto={efectoAnulacion(abono.medioPago === "EFECTIVO", abono.cierreCajaId)}
+                accion={anularAbonoAccion.bind(null, abono.id)}
+              />
+            ) : null}
+            <BotonImprimir automatico={imprimir === "1" && !abono.anulado} />
           </div>
         </div>
+        {abono.anulado ? (
+          <p className="mb-5 flex max-w-2xl items-start gap-2 rounded-md bg-peligro-fondo px-3 py-2.5 text-[13px] leading-snug text-peligro-tinta">
+            <span className="mt-px shrink-0">
+              <Icono nombre="alerta" tamano={15} />
+            </span>
+            <span>
+              Abono anulado
+              {abono.anuladoEn ? ` el ${formatoFechaHora(abono.anuladoEn)}` : ""}
+              {abono.anuladoPor ? ` por ${abono.anuladoPor.nombre}` : ""}: {abono.motivoAnulacion}.
+              No resta de la deuda del cliente.
+            </span>
+          </p>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -96,6 +126,7 @@ export default async function AbonoPage({
             monto: textoMonto(abono.monto),
             saldoPendiente,
             nota: abono.nota,
+            anulado: abono.anulado,
           }}
         />
 

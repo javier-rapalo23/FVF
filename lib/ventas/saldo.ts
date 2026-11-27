@@ -6,7 +6,7 @@ import { aDecimal, type ValorDecimal } from "@/lib/calculos";
  * Saldo de la cuenta corriente de un cliente: lo que debe.
  *
  * `CARGO` suma; `ABONO` (dinero cobrado) y `ANULACION` (reversa de una venta
- * a fiado anulada) restan.
+ * a fiado anulada) restan. Un abono anulado no cuenta: lo filtra la consulta.
  */
 export function calcularSaldo(
   movimientos: readonly { tipo: TipoMovimientoCuenta; monto: ValorDecimal | null }[],
@@ -30,7 +30,7 @@ export async function saldosDeClientes(
 ): Promise<Map<number, Prisma.Decimal>> {
   const sumas = await db.movimientoCuenta.groupBy({
     by: ["clienteId", "tipo"],
-    where: clienteIds ? { clienteId: { in: [...clienteIds] } } : undefined,
+    where: { anulado: false, ...(clienteIds ? { clienteId: { in: [...clienteIds] } } : {}) },
     _sum: { monto: true },
   });
 

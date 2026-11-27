@@ -345,7 +345,8 @@ export async function registrarCierre(usuario: UsuarioActivo, crudo: unknown): P
         where: filtroGastosPendientes(sucursal.id, estado.inicioCadena),
         data: { cierreCajaId: cierre.id },
       });
-      // Abonos cobrados y pagos a proveedores con el efectivo del cajón.
+      // Abonos cobrados y pagos a proveedores con el efectivo del cajón. Igual
+      // que los gastos, entran también los anulados, que no cuentan.
       await tx.movimientoCuenta.updateMany({
         where: filtroAbonosPendientes(sucursal.id, estado.inicioCadena),
         data: { cierreCajaId: cierre.id },

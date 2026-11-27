@@ -70,6 +70,8 @@ export default async function DetalleCierrePage({
           id: true,
           monto: true,
           fecha: true,
+          anulado: true,
+          anuladoEn: true,
           cliente: { select: { id: true, nombre: true } },
         },
         orderBy: { id: "asc" },
@@ -80,6 +82,8 @@ export default async function DetalleCierrePage({
           monto: true,
           fecha: true,
           nota: true,
+          anulado: true,
+          anuladoEn: true,
           proveedor: { select: { id: true, nombre: true } },
         },
         orderBy: { id: "asc" },
@@ -89,6 +93,13 @@ export default async function DetalleCierrePage({
   });
   // El empleado solo ve los cierres de su sucursal.
   if (!cierre || (!esAdmin && cierre.sucursalId !== usuario.sucursalId)) notFound();
+
+  // Un abono o pago anulado antes de este cierre se asignó pero no contó; uno
+  // anulado después sí contó, y el cierre no cambia.
+  const fechaCierre = cierre.fecha;
+  function anuladoAntes(m: { anulado: boolean; anuladoEn: Date | null }) {
+    return m.anulado && (m.anuladoEn === null || m.anuladoEn <= fechaCierre);
+  }
 
   const retiro = cierre.totalContado.minus(cierre.fondoSiguiente);
   const detalle = leerDetalle(cierre.detalleConteo);
@@ -327,7 +338,7 @@ export default async function DetalleCierrePage({
                   ]}
                 >
                   {cierre.abonos.map((a) => (
-                    <Fila key={a.id}>
+                    <Fila key={a.id} atenuada={anuladoAntes(a)}>
                       <Celda className="cifras font-mono">
                         <Link href={`/caja/abonos/${a.id}`} className="underline-offset-2 hover:underline">
                           {a.id}
@@ -336,8 +347,11 @@ export default async function DetalleCierrePage({
                       <Celda className="cifras whitespace-nowrap text-tinta-media">
                         {formatoHora(a.fecha)}
                       </Celda>
-                      <Celda>{a.cliente.nombre}</Celda>
-                      <Celda derecha className="cifras">
+                      <Celda>
+                        {a.cliente.nombre}
+                        <MarcaAnulado anulado={a.anulado} antes={anuladoAntes(a)} />
+                      </Celda>
+                      <Celda derecha className={`cifras ${anuladoAntes(a) ? "line-through" : ""}`}>
                         {formatoMoneda(a.monto)}
                       </Celda>
                     </Fila>
@@ -363,7 +377,7 @@ export default async function DetalleCierrePage({
                   ]}
                 >
                   {cierre.pagosProveedor.map((p) => (
-                    <Fila key={p.id}>
+                    <Fila key={p.id} atenuada={anuladoAntes(p)}>
                       <Celda className="cifras font-mono text-tinta-media">{p.id}</Celda>
                       <Celda className="cifras whitespace-nowrap text-tinta-media">
                         {formatoHora(p.fecha)}
@@ -379,11 +393,12 @@ export default async function DetalleCierrePage({
                         ) : (
                           p.proveedor.nombre
                         )}
+                        <MarcaAnulado anulado={p.anulado} antes={anuladoAntes(p)} />
                       </Celda>
                       <Celda ocultaMovil className="text-tinta-media">
                         {p.nota ?? "—"}
                       </Celda>
-                      <Celda derecha className="cifras">
+                      <Celda derecha className={`cifras ${anuladoAntes(p) ? "line-through" : ""}`}>
                         {formatoMoneda(p.monto)}
                       </Celda>
                     </Fila>
@@ -475,5 +490,14 @@ function MontoSimple({ etiqueta, valor }: { etiqueta: string; valor: Prisma.Deci
       <span className="text-tinta-media">{etiqueta}</span>
       <span className="text-tinta">{formatoMoneda(valor)}</span>
     </p>
+  );
+}
+
+function MarcaAnulado({ anulado, antes }: { anulado: boolean; antes: boolean }) {
+  if (!anulado) return null;
+  return (
+    <Etiqueta tono={antes ? "peligro" : "neutro"} className="ml-1.5">
+      {antes ? "Anulado" : "Anulado después del cierre"}
+    </Etiqueta>
   );
 }

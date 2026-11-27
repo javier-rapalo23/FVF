@@ -140,7 +140,13 @@ export default async function ProveedorPage({
         <h2 className="mb-3 text-[15px] font-semibold tracking-[-0.01em] text-tinta">
           Estado de cuenta
         </h2>
-        <EstadoCuenta filas={movimientos} cuenta="proveedor" />
+        <EstadoCuenta
+          filas={movimientos}
+          cuenta="proveedor"
+          cuentaId={proveedor.id}
+          // Ruta solo de administrador (lib/permissions.ts); la acción lo vuelve a validar.
+          puedeAnular
+        />
       </div>
 
       <div className="mt-8 max-w-4xl">

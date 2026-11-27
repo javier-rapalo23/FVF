@@ -103,7 +103,8 @@ export function filtroGastosPendientes(sucursalId: number, inicioCadena: Date): 
 
 /**
  * Abonos de clientes cobrados en efectivo en la caja de la sucursal, todavía
- * sin cierre. Mismo piso que las ventas.
+ * sin cierre. Mismo piso que las ventas. Incluye los anulados: el cierre los
+ * asigna igual, pero no suman (igual que los gastos).
  */
 export function filtroAbonosPendientes(
   sucursalId: number,
@@ -118,7 +119,7 @@ export function filtroAbonosPendientes(
   };
 }
 
-/** Pagos a proveedores con el efectivo del cajón, todavía sin cierre. */
+/** Pagos a proveedores con el efectivo del cajón, todavía sin cierre. Incluye los anulados. */
 export function filtroPagosProveedorPendientes(
   sucursalId: number,
   inicioCadena: Date,
@@ -161,11 +162,11 @@ export async function totalesPendientes(
       _sum: { monto: true },
     }),
     db.movimientoCuenta.aggregate({
-      where: filtroAbonosPendientes(sucursalId, inicioCadena),
+      where: { ...filtroAbonosPendientes(sucursalId, inicioCadena), anulado: false },
       _sum: { monto: true },
     }),
     db.movimientoProveedor.aggregate({
-      where: filtroPagosProveedorPendientes(sucursalId, inicioCadena),
+      where: { ...filtroPagosProveedorPendientes(sucursalId, inicioCadena), anulado: false },
       _sum: { monto: true },
     }),
   ]);
@@ -209,8 +210,14 @@ export async function totalesDeCierre(
       where: { cierreCajaId: cierreId, anulado: false },
       _sum: { monto: true },
     }),
-    db.movimientoCuenta.aggregate({ where: { cierreCajaId: cierreId }, _sum: { monto: true } }),
-    db.movimientoProveedor.aggregate({ where: { cierreCajaId: cierreId }, _sum: { monto: true } }),
+    db.movimientoCuenta.aggregate({
+      where: { cierreCajaId: cierreId, anulado: false },
+      _sum: { monto: true },
+    }),
+    db.movimientoProveedor.aggregate({
+      where: { cierreCajaId: cierreId, anulado: false },
+      _sum: { monto: true },
+    }),
   ]);
   return armarTotales(
     porMetodo,
